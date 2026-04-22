@@ -132,6 +132,7 @@ class ObdService : Service() {
                         if (request.contains("\r")) {
                             usbPort?.write(request.toString().toByteArray(), 1000)
                             log("TCP → USB: $request")
+                            request.clear()
                         }
                     }
                 } catch (e: Exception) {
