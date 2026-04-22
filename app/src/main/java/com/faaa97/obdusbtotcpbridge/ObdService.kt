@@ -120,13 +120,19 @@ class ObdService : Service() {
         // TCP → USB
         Thread {
             val buffer = ByteArray(1024)
+            val request = StringBuilder()
 
             while (running) {
                 try {
                     val len = tcpIn?.read(buffer) ?: break
                     if (len > 0) {
-                        usbPort?.write(buffer, 1000)
-                        log("TCP → USB: ${String(buffer, 0, len)}")
+                        val data = String(buffer, 0, len)
+                        request.append(data)
+
+                        if (request.contains("\r")) {
+                            usbPort?.write(request.toString().toByteArray(), 1000)
+                            log("TCP → USB: $request")
+                        }
                     }
                 } catch (e: Exception) {
                     log("TCP→USB error: ${e.message}")
