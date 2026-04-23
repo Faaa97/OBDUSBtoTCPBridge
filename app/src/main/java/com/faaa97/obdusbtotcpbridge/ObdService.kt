@@ -4,7 +4,6 @@ import android.app.*
 import android.content.*
 import android.hardware.usb.*
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
 import java.io.*
@@ -41,6 +40,7 @@ class ObdService : Service() {
 
     override fun onDestroy() {
         endTcp()
+        stopSelf(1)
         running = false
         log("Service stopped")
         super.onDestroy()
@@ -171,8 +171,7 @@ class ObdService : Service() {
     // ---------------- LOGGING ----------------
 
     private fun log(msg: String) {
-        Log.d("OBD", msg)
-        ObdLogBus.emit(msg)
+        ObdLogBus.log(msg)
     }
 
     // ---------------- FOREGROUND ----------------

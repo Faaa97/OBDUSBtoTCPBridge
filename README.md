@@ -4,6 +4,3 @@ Small android application that allows using a USB OBD2 device with apps that onl
 
 # TODO:
 - Allow selecting the USB device
-- Allow disabling logging
-- Allow starting the app always
-- Save all this config

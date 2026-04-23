@@ -1,5 +1,6 @@
 package com.faaa97.obdusbtotcpbridge
 
+import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
@@ -12,7 +13,14 @@ object ObdLogBus {
 
     val logs = _logs.asSharedFlow()
 
-    fun emit(msg: String) {
+    var enabled : Boolean = true
+
+    fun log(msg: String) {
+        if(!enabled) {
+            return
+        }
+
+        Log.d("OBD", msg)
         _logs.tryEmit(msg)
     }
 }
