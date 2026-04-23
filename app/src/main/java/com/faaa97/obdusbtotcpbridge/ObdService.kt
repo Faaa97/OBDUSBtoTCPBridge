@@ -28,7 +28,7 @@ class ObdService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(1, buildNotification("Starting OBD bridge..."))
+        startForeground(1, buildNotification())
         startUsb()
         startTcp()
     }
@@ -173,7 +173,6 @@ class ObdService : Service() {
     private fun log(msg: String) {
         Log.d("OBD", msg)
         ObdLogBus.emit(msg)
-        updateNotification(msg)
     }
 
     // ---------------- FOREGROUND ----------------
@@ -189,17 +188,10 @@ class ObdService : Service() {
             .createNotificationChannel(channel)
     }
 
-    private fun buildNotification(text: String): Notification {
+    private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("OBD Bridge running")
-            .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_notify_sdcard_usb)
             .build()
-    }
-
-    private fun updateNotification(text: String) {
-        val notification = buildNotification(text)
-        val nm = getSystemService(NotificationManager::class.java)
-        nm.notify(1, notification)
     }
 }

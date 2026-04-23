@@ -2,3 +2,8 @@
 
 Small android application that allows using a USB OBD2 device with apps that only allow wifi or bluetooth devices.
 
+# TODO:
+- Allow selecting the USB device
+- Allow disabling logging
+- Allow starting the app always
+- Save all this config
