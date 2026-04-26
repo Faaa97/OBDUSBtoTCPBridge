@@ -18,9 +18,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        val commitId = "git rev-parse --short=8 HEAD".runCommand(workingDir = rootDir)
-        setProperty("archivesBaseName", "MCU-Test-$commitId")
     }
 
     buildTypes {
@@ -36,6 +33,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+}
+
+base {
+    val commitId = "git rev-parse --short=8 HEAD".runCommand(workingDir = rootDir)
+    archivesName = "OBDUSBtoTCPbridge-$commitId"
 }
 
 dependencies {
