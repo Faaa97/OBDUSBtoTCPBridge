@@ -18,6 +18,7 @@ object PersistedState {
 
     fun init(sharedPreferences: SharedPreferences, context: Context) {
         sharedPrefs = sharedPreferences
+        this.context = context
         isLoggingEnabled = sharedPrefs.getBoolean(context.getString(R.string.enable_logs_persisted_value), true)
         isAutoStartEnabled = sharedPrefs.getBoolean(context.getString(R.string.autostart_persisted_value), false)
     }

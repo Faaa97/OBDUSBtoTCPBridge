@@ -11,6 +11,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var logView: LinearLayout
     private var runningService: ComponentName? = null
+    private var button: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,10 +39,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeMainButton(){
-        val button = this.findViewById<Button>(R.id.start_button)
-        button.setOnClickListener {
+        button = this.findViewById<Button>(R.id.start_button)
+        button?.setOnClickListener {
             manageService()
-            updateButtonText(button)
+            updateButtonText()
         }
     }
 
@@ -54,11 +55,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateButtonText(button : Button) {
+    private fun updateButtonText() {
         if(runningService == null) {
-            button.setText(R.string.button_text_start)
+            button?.setText(R.string.button_text_start)
         } else {
-            button.setText(R.string.button_text_stop)
+            button?.setText(R.string.button_text_stop)
         }
     }
 
@@ -83,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     private fun autoStart() {
         if(PersistedState.isAutoStartEnabled){
             manageService()
+            updateButtonText()
         }
     }
 
