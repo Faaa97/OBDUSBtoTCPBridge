@@ -14,6 +14,8 @@ class ObdService : Service() {
 
     companion object {
         const val CHANNEL_ID = "obd_channel"
+        var isRunning = false
+            private set
     }
 
     private var serverSocket: ServerSocket? = null
@@ -22,18 +24,21 @@ class ObdService : Service() {
     private var tcpIn: InputStream? = null
     private var tcpOut: OutputStream? = null
 
-    private var running = false
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
         startForeground(1, buildNotification())
-        startUsb()
-        startTcp()
+        start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        running = true
+        if(!start()) {
+            log("Can't continue, stopping")
+            return START_NOT_STICKY
+        }
+
+        isRunning = true
         log("Service started")
         return START_STICKY
     }
@@ -41,12 +46,23 @@ class ObdService : Service() {
     override fun onDestroy() {
         endTcp()
         stopSelf(1)
-        running = false
+        isRunning = false
         log("Service stopped")
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    // ---------------- SEQUENCE -----------
+
+    private fun start() : Boolean {
+        startUsb()
+        if(usbPort == null) {
+            return false
+        }
+        startTcp()
+        return true
+    }
 
     // ---------------- USB ----------------
 
@@ -122,7 +138,7 @@ class ObdService : Service() {
             val buffer = ByteArray(1024)
             val request = StringBuilder()
 
-            while (running) {
+            while (isRunning) {
                 try {
                     val len = tcpIn?.read(buffer) ?: break
                     if (len > 0) {
@@ -147,7 +163,7 @@ class ObdService : Service() {
             val buffer = ByteArray(1024)
             val response = StringBuilder()
 
-            while (running) {
+            while (isRunning) {
                 try {
                     val len = usbPort?.read(buffer, 1000) ?: break
                     if (len > 0) {

@@ -10,7 +10,6 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var logView: LinearLayout
-    private var runningService: ComponentName? = null
     private var button: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,16 +46,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun manageService() {
-        if(runningService == null) {
-            runningService = startService(Intent(this@MainActivity, ObdService::class.java))
+        val intent =Intent(this@MainActivity, ObdService::class.java)
+        if(!ObdService.isRunning) {
+            startService(intent)
         } else {
-            stopService(Intent(this@MainActivity, ObdService::class.java))
-            runningService = null
+            stopService(intent)
         }
     }
 
     private fun updateButtonText() {
-        if(runningService == null) {
+        if(!ObdService.isRunning) {
             button?.setText(R.string.button_text_start)
         } else {
             button?.setText(R.string.button_text_stop)
