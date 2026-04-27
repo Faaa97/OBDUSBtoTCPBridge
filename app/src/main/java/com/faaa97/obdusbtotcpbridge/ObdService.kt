@@ -29,7 +29,6 @@ class ObdService : Service() {
         super.onCreate()
         createNotificationChannel()
         startForeground(1, buildNotification())
-        start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
