@@ -38,16 +38,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeMainButton(){
+        ObdService.isRunning.addObserver { _ ->
+            ObdLogBus.log("Reacting to observer")
+            updateButtonText()
+        }
+
         button = this.findViewById<Button>(R.id.start_button)
         button?.setOnClickListener {
             manageService()
-            updateButtonText()
         }
     }
 
     private fun manageService() {
         val intent =Intent(this@MainActivity, ObdService::class.java)
-        if(!ObdService.isRunning) {
+        if(!ObdService.isRunning.value) {
             startService(intent)
         } else {
             stopService(intent)
@@ -55,7 +59,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateButtonText() {
-        if(!ObdService.isRunning) {
+        if(!ObdService.isRunning.value) {
             button?.setText(R.string.button_text_start)
         } else {
             button?.setText(R.string.button_text_stop)
@@ -83,7 +87,6 @@ class MainActivity : AppCompatActivity() {
     private fun autoStart() {
         if(PersistedState.isAutoStartEnabled){
             manageService()
-            updateButtonText()
         }
     }
 

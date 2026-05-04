@@ -14,7 +14,7 @@ class ObdService : Service() {
 
     companion object {
         const val CHANNEL_ID = "obd_channel"
-        var isRunning = false
+        var isRunning : Observable<Boolean> = Observable(false)
             private set
     }
 
@@ -34,10 +34,10 @@ class ObdService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(!start()) {
             log("Can't continue, stopping")
-            return START_NOT_STICKY
+            //return START_NOT_STICKY
         }
 
-        isRunning = true
+        isRunning.value = true
         log("Service started")
         return START_STICKY
     }
@@ -45,7 +45,7 @@ class ObdService : Service() {
     override fun onDestroy() {
         endTcp()
         stopSelf(1)
-        isRunning = false
+        isRunning.value = false
         log("Service stopped")
         super.onDestroy()
     }
@@ -137,7 +137,7 @@ class ObdService : Service() {
             val buffer = ByteArray(1024)
             val request = StringBuilder()
 
-            while (isRunning) {
+            while (isRunning.value) {
                 try {
                     val len = tcpIn?.read(buffer) ?: break
                     if (len > 0) {
@@ -162,7 +162,7 @@ class ObdService : Service() {
             val buffer = ByteArray(1024)
             val response = StringBuilder()
 
-            while (isRunning) {
+            while (isRunning.value) {
                 try {
                     val len = usbPort?.read(buffer, 1000) ?: break
                     if (len > 0) {
