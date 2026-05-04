@@ -39,7 +39,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeMainButton(){
         ObdService.isRunning.addObserver { _ ->
-            ObdLogBus.log("Reacting to observer")
             updateButtonText()
         }
 
