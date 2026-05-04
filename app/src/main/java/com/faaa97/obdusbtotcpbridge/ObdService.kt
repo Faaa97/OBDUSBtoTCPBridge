@@ -34,7 +34,7 @@ class ObdService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if(!start()) {
             log("Can't continue, stopping")
-            //return START_NOT_STICKY
+            return START_NOT_STICKY
         }
 
         isRunning.value = true
