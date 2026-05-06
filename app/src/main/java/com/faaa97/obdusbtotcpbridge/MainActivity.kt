@@ -1,11 +1,14 @@
 package com.faaa97.obdusbtotcpbridge
 
+import android.app.Activity
 import android.content.*
 import android.os.Bundle
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -18,6 +21,7 @@ class MainActivity : AppCompatActivity() {
 
         initializePersistedState()
         initializeLoggingView()
+        initializeDeviceDropdown()
         initializeMainButton()
         initializeToggles()
         autoStart()
@@ -39,13 +43,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun initializeMainButton(){
         ObdService.isRunning.addObserver { _ ->
-            updateButtonText()
+            updateMainButton()
+        }
+
+        USBDeviceSelection.selectedDeviceOption.addObserver { _ ->
+            updateMainButton()
         }
 
         button = this.findViewById<Button>(R.id.start_button)
         button?.setOnClickListener {
             manageService()
         }
+
+        updateMainButton()
     }
 
     private fun manageService() {
@@ -57,12 +67,51 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateButtonText() {
+    private fun updateMainButton() {
         if(!ObdService.isRunning.value) {
             button?.setText(R.string.button_text_start)
         } else {
             button?.setText(R.string.button_text_stop)
         }
+
+        if(USBDeviceSelection.selectedDeviceOption.value == null){
+            button?.isEnabled = false
+        } else {
+            button?.isEnabled = true
+        }
+    }
+
+    private fun initializeDeviceDropdown() {
+        USBDeviceSelection.initialize(this)
+
+        var options: List<String>
+        if(USBDeviceSelection.deviceOptions.isNotEmpty()){
+            options = USBDeviceSelection.deviceOptions
+        } else {
+            options = mutableListOf("No devices available")
+        }
+
+        val dropdown = this.findViewById<Spinner>(R.id.device_dropdown)
+        dropdown.onItemSelectedListener = object : Activity(), AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                USBDeviceSelection.trySelectDevice(position)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // Optional: handle no selection
+                ObdLogBus.log("No selection")
+            }
+        }
+
+        val adapter: ArrayAdapter<String> =
+            ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,
+                options)
+        dropdown.adapter = adapter
     }
 
     private fun initializeToggles() {
@@ -84,7 +133,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun autoStart() {
-        if(PersistedState.isAutoStartEnabled){
+        if(PersistedState.isAutoStartEnabled && !ObdService.isRunning.value){
             manageService()
         }
     }

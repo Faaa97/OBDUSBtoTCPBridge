@@ -2,7 +2,6 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.app.*
 import android.content.*
-import android.hardware.usb.*
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
@@ -66,26 +65,9 @@ class ObdService : Service() {
     // ---------------- USB ----------------
 
     private fun startUsb() {
-        val manager = getSystemService(USB_SERVICE) as UsbManager
-
-        val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
-        if (drivers.isEmpty()) {
-            log("No USB device found")
-            return
-        }
-
-        val driver = drivers[0]
-        val connection = manager.openDevice(driver.device)
-
-        if (connection == null) {
-            log("USB permission missing")
-            return
-        }
-
-        usbPort = driver.ports[0]
+        usbPort = USBDeviceSelection.openSelectedDevice()
 
         try {
-            usbPort?.open(connection)
             usbPort?.setParameters(
                 38400,
                 8,

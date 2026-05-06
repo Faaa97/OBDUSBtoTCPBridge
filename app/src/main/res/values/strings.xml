@@ -8,4 +8,5 @@
     <string name="autostart_persisted_value" translatable="false">autostart_persisted_value</string>
     <string name="on">ON</string>
     <string name="off">OFF</string>
+    <string name="saved_serial_persisted_value" translatable="false">saved_serial_persisted_value</string>
 </resources>
