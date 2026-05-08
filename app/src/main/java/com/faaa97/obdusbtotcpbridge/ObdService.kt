@@ -42,6 +42,7 @@ class ObdService : Service() {
     }
 
     override fun onDestroy() {
+        endUsb()
         endTcp()
         stopSelf(1)
         isRunning.value = false
@@ -66,6 +67,9 @@ class ObdService : Service() {
 
     private fun startUsb() {
         usbPort = USBDeviceSelection.openSelectedDevice()
+        if(usbPort == null) {
+            return
+        }
 
         try {
             usbPort?.setParameters(
@@ -80,6 +84,14 @@ class ObdService : Service() {
         } catch (e: Exception) {
             log("USB error: ${e.message}")
         }
+    }
+
+    private fun endUsb() {
+        if(usbPort == null) {
+            return
+        }
+
+        usbPort?.close()
     }
 
     // ---------------- TCP ----------------

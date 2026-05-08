@@ -17,7 +17,7 @@ object PersistedState {
     var isAutoStartEnabled : Boolean = false
         private set
 
-    var savedUSBSerial : String? = null
+    var savedUsbId : String? = null
         private set
 
     fun init(sharedPreferences: SharedPreferences, context: Context) {
@@ -25,7 +25,7 @@ object PersistedState {
         this.context = context
         isLoggingEnabled = sharedPrefs.getBoolean(context.getString(R.string.enable_logs_persisted_value), true)
         isAutoStartEnabled = sharedPrefs.getBoolean(context.getString(R.string.autostart_persisted_value), false)
-        savedUSBSerial = sharedPrefs.getString(context.getString(R.string.saved_serial_persisted_value), null)
+        savedUsbId = sharedPrefs.getString(context.getString(R.string.saved_id_persisted_value), null)
     }
 
     fun setLoggingEnabled(value: Boolean) {
@@ -42,10 +42,10 @@ object PersistedState {
         }
     }
 
-    fun setSavedUSBSerial(value: String) {
-        savedUSBSerial = value
+    fun setSavedUsbId(value: String) {
+        savedUsbId = value
         sharedPrefs.edit {
-            putString(context.getString(R.string.saved_serial_persisted_value), savedUSBSerial)
+            putString(context.getString(R.string.saved_id_persisted_value), savedUsbId)
         }
     }
 

@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun manageService() {
-        val intent =Intent(this@MainActivity, ObdService::class.java)
+        val intent = Intent(this@MainActivity, ObdService::class.java)
         if(!ObdService.isRunning.value) {
             startService(intent)
         } else {
@@ -86,7 +86,9 @@ class MainActivity : AppCompatActivity() {
 
         var options: List<String>
         if(USBDeviceSelection.deviceOptions.isNotEmpty()){
-            options = USBDeviceSelection.deviceOptions
+            options = USBDeviceSelection.deviceOptions.map { option ->
+                option.label
+            }
         } else {
             options = mutableListOf("No devices available")
         }
