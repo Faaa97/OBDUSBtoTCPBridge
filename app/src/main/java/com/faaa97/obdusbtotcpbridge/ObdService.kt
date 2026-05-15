@@ -42,10 +42,7 @@ class ObdService : Service() {
     }
 
     override fun onDestroy() {
-        endUsb()
-        endTcp()
-        stopSelf(1)
-        isRunning.value = false
+        end()
         log("Service stopped")
         super.onDestroy()
     }
@@ -63,6 +60,12 @@ class ObdService : Service() {
         return true
     }
 
+    private fun end() {
+        endUsb()
+        endTcp()
+        isRunning.value = false
+        stopSelf(1)
+    }
     // ---------------- USB ----------------
 
     private fun startUsb() {
@@ -146,6 +149,7 @@ class ObdService : Service() {
                     }
                 } catch (e: Exception) {
                     log("TCP→USB error: ${e.message}")
+                    end()
                     break
                 }
             }
@@ -171,6 +175,7 @@ class ObdService : Service() {
                     }
                 } catch (e: Exception) {
                     log("USB→TCP error: ${e.message}")
+                    end()
                     break
                 }
             }
