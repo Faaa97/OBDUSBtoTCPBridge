@@ -18,7 +18,7 @@ object USBDeviceSelection {
     var selectedDeviceOption : Observable<String?> = Observable(null)
         private set
 
-    private lateinit var selectedDeviceDriver: UsbSerialDriver
+    private var selectedDeviceDriver: UsbSerialDriver? = null
 
     lateinit var manager : UsbManager
     lateinit var context : Context
@@ -66,6 +66,8 @@ object USBDeviceSelection {
 
             val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
             if (drivers.isEmpty()) {
+                selectedDeviceDriver = null
+                selectedDeviceOption.value = null
                 log("No USB device found")
                 return
             }
@@ -78,6 +80,9 @@ object USBDeviceSelection {
             }
 
             if (driver == null) {
+                log("Selected device not found among connected devices")
+                selectedDeviceDriver = null
+                selectedDeviceOption.value = null
                 return
             }
 
@@ -93,11 +98,18 @@ object USBDeviceSelection {
 
     fun openSelectedDevice() : UsbSerialPort? {
         try {
-            var connection = manager.openDevice(selectedDeviceDriver.device)
+            if(selectedDeviceDriver == null){
+                log("No USB device selected")
+                return null;
+            }
+
+            val deviceDriver = selectedDeviceDriver!!;
+
+            var connection = manager.openDevice(deviceDriver.device)
             if (connection == null) {
-                requestPermission(selectedDeviceDriver.device)
-                if(manager.hasPermission(selectedDeviceDriver.device)){
-                    connection = manager.openDevice(selectedDeviceDriver.device)
+                requestPermission(deviceDriver.device)
+                if(manager.hasPermission(deviceDriver.device)){
+                    connection = manager.openDevice(deviceDriver.device)
                 }
 
                 if(connection == null){
@@ -106,7 +118,7 @@ object USBDeviceSelection {
                 }
             }
 
-            val usbPort = selectedDeviceDriver.ports[0]
+            val usbPort = deviceDriver.ports[0]
             usbPort.open(connection)
             return usbPort
         } catch (e: Exception) {
