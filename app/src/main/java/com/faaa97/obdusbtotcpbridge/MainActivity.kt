@@ -19,17 +19,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        initializePersistedState()
         initializeLoggingView()
         initializeDeviceDropdown()
         initializeMainButton()
         initializeToggles()
         autoStart()
-    }
-
-    private fun initializePersistedState() {
-        val sharedPref = getPreferences(MODE_PRIVATE) ?: return
-        PersistedState.init(sharedPref, this)
     }
 
     private fun initializeLoggingView() {
@@ -82,8 +76,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeDeviceDropdown() {
-        USBDeviceSelection.initialize(this)
-
         var options: List<String>
         if(USBDeviceSelection.deviceOptions.isNotEmpty()){
             options = USBDeviceSelection.deviceOptions.map { option ->

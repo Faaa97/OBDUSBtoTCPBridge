@@ -20,28 +20,28 @@ object USBDeviceSelection {
 
     private var selectedDeviceDriver: UsbSerialDriver? = null
 
-    lateinit var manager : UsbManager
-    lateinit var context : Context
+    private lateinit var manager : UsbManager
+    private lateinit var context : Context
 
     fun initialize(context: Context) {
-        this.context = context
-        manager = context.getSystemService(USB_SERVICE) as UsbManager
+        this.context = context.applicationContext
+        manager = this.context.getSystemService(USB_SERVICE) as UsbManager
 
         populateDeviceOptions()
         trySelectDevice()
     }
 
+    private fun isInitialized(): Boolean = this::manager.isInitialized && this::context.isInitialized
+
     private fun populateDeviceOptions() {
+        if (!isInitialized()) return
         try {
             val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
-            if (drivers.isEmpty()) {
-                log("No USB device found")
-                return
-            }
-
             deviceOptions = drivers.map { driver ->
-                val d = driver.device
-                UsbDeviceItem.Create(d)
+                UsbDeviceItem.Create(driver.device)
+            }
+            if (deviceOptions.isEmpty()) {
+                log("No USB device found")
             }
         } catch (e: Exception) {
             log("Error while trying to populate device options: ${e.message}")
@@ -49,34 +49,28 @@ object USBDeviceSelection {
     }
 
     fun trySelectDevice(userSelection: Int = -1) {
+        if (!isInitialized()) return
         try {
             if (deviceOptions.isEmpty()) {
-                return
+                populateDeviceOptions()
             }
 
-            var id = PersistedState.savedUsbId
-            if (userSelection != -1) {
-                id = deviceOptions[userSelection].id
+            val id = if (userSelection != -1 && userSelection < deviceOptions.size) {
+                deviceOptions[userSelection].id
+            } else {
+                PersistedState.savedUsbId
             }
 
             if (id == null) {
                 log("No USB device selected")
+                selectedDeviceDriver = null
+                selectedDeviceOption.value = null
                 return
             }
 
             val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
-            if (drivers.isEmpty()) {
-                selectedDeviceDriver = null
-                selectedDeviceOption.value = null
-                log("No USB device found")
-                return
-            }
-
             val driver = drivers.find { d ->
-                val device = d.device
-                val matchesId = id == UsbDeviceItem.Create(device).id
-
-                matchesId
+                UsbDeviceItem.Create(d.device).id == id
             }
 
             if (driver == null) {
@@ -97,28 +91,35 @@ object USBDeviceSelection {
     }
 
     fun openSelectedDevice() : UsbSerialPort? {
+        if (!isInitialized()) {
+            log("USB Selection not initialized")
+            return null
+        }
+
+        val driver = selectedDeviceDriver ?: run {
+            log("No USB device selected")
+            return null
+        }
+
         try {
-            if(selectedDeviceDriver == null){
-                log("No USB device selected")
-                return null;
-            }
-
-            val deviceDriver = selectedDeviceDriver!!;
-
-            var connection = manager.openDevice(deviceDriver.device)
+            var connection = manager.openDevice(driver.device)
             if (connection == null) {
-                requestPermission(deviceDriver.device)
-                if(manager.hasPermission(deviceDriver.device)){
-                    connection = manager.openDevice(deviceDriver.device)
+                requestPermission(driver.device)
+                if (manager.hasPermission(driver.device)) {
+                    connection = manager.openDevice(driver.device)
                 }
 
-                if(connection == null){
-                    log("USB permission missing")
+                if (connection == null) {
+                    log("USB permission missing or failed to open connection")
                     return null
                 }
             }
 
-            val usbPort = deviceDriver.ports[0]
+            val usbPort = driver.ports.getOrNull(0) ?: run {
+                log("No ports found on device")
+                return null
+            }
+
             usbPort.open(connection)
             return usbPort
         } catch (e: Exception) {
@@ -128,6 +129,7 @@ object USBDeviceSelection {
     }
 
     private fun requestPermission(usbDevice: UsbDevice) {
+        if (!isInitialized()) return
         try {
             val permissionIntent = PendingIntent.getBroadcast(
                 context,
