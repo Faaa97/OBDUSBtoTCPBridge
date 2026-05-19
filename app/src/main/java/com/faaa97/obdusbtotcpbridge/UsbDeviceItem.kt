@@ -10,7 +10,7 @@ class UsbDeviceItem(
     companion object {
         fun Create(device: UsbDevice) : UsbDeviceItem {
             return UsbDeviceItem(
-                "${device.vendorId}:${device.productId}:${device.deviceName}",
+                "${device.vendorId}:${device.productId}",
                 "VID:${device.vendorId} PID:${device.productId}",
                 device)
         }
