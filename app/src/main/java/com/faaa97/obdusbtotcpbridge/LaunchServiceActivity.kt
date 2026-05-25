@@ -9,6 +9,7 @@ class LaunchServiceActivity : Activity()  {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        USBDeviceSelection.populateDeviceOptions()
         USBDeviceSelection.trySelectDevice()
 
         val intent = Intent(this, ObdService::class.java)

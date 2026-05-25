@@ -26,14 +26,11 @@ object USBDeviceSelection {
     fun initialize(context: Context) {
         this.context = context.applicationContext
         manager = this.context.getSystemService(USB_SERVICE) as UsbManager
-
-        populateDeviceOptions()
-        trySelectDevice()
     }
 
     private fun isInitialized(): Boolean = this::manager.isInitialized && this::context.isInitialized
 
-    private fun populateDeviceOptions() {
+    fun populateDeviceOptions() {
         if (!isInitialized()) return
         try {
             val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
@@ -42,13 +39,17 @@ object USBDeviceSelection {
             }
             if (deviceOptions.isEmpty()) {
                 log("No USB device found")
+            } else {
+                for (option in deviceOptions) {
+                    log("Found USB device: $option")
+                }
             }
         } catch (e: Exception) {
             log("Error while trying to populate device options: ${e.message}")
         }
     }
 
-    fun trySelectDevice(userSelection: Int = -1) {
+    fun trySelectDevice(userSelection: Int = -1, deviceSelected: (UsbDeviceItem) -> Unit = {}) {
         if (!isInitialized()) return
         try {
             if (deviceOptions.isEmpty()) {
@@ -80,10 +81,12 @@ object USBDeviceSelection {
                 return
             }
 
-            selectedDeviceOption.value = UsbDeviceItem.Create(driver.device).id
+            val device = UsbDeviceItem.Create(driver.device)
+            selectedDeviceOption.value = device.id
             selectedDeviceDriver = driver
 
             PersistedState.setSavedUsbId(selectedDeviceOption.value.toString())
+            deviceSelected(device)
 
         } catch (e: Exception) {
             log("Error while trying to select a device: ${e.message}")

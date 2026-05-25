@@ -76,6 +76,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initializeDeviceDropdown() {
+        USBDeviceSelection.populateDeviceOptions()
+
         var options: List<String>
         if(USBDeviceSelection.deviceOptions.isNotEmpty()){
             options = USBDeviceSelection.deviceOptions.map { option ->
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         val dropdown = this.findViewById<Spinner>(R.id.device_dropdown)
+        val deviceInfoTextView = this.findViewById<TextView>(R.id.device_info)
         dropdown.onItemSelectedListener = object : Activity(), AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -93,7 +96,9 @@ class MainActivity : AppCompatActivity() {
                 position: Int,
                 id: Long
             ) {
-                USBDeviceSelection.trySelectDevice(position)
+                USBDeviceSelection.trySelectDevice(position, deviceSelected = { device ->
+                    deviceInfoTextView.text = device.toString()
+                })
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
