@@ -2,6 +2,7 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.app.Activity
 import android.content.*
+import android.hardware.usb.UsbManager
 import android.os.Bundle
 import android.view.View
 import android.widget.*
@@ -19,11 +20,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
+        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED))
+
         initializeLoggingView()
         initializeDeviceDropdown()
         initializeMainButton()
         initializeToggles()
         autoStart()
+    }
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action ||
+                UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
+                initializeDeviceDropdown()
+            }
+        }
     }
 
     private fun initializeLoggingView() {
