@@ -16,6 +16,7 @@ class LaunchServiceActivity : Activity()  {
         registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
         registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED))
 
+        start()
         finish()
     }
 
