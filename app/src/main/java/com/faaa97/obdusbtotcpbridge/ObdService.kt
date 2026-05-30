@@ -5,6 +5,10 @@ import android.content.*
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.*
 import java.net.ServerSocket
 import java.net.Socket
@@ -23,6 +27,10 @@ class ObdService : Service() {
     private var tcpIn: InputStream? = null
     private var tcpOut: OutputStream? = null
 
+    private val serviceScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO
+    )
+
 
     override fun onCreate() {
         super.onCreate()
@@ -31,13 +39,16 @@ class ObdService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if(!start()) {
-            log("Can't continue, stopping")
-            return START_NOT_STICKY
+        serviceScope.launch {
+            if(!start()) {
+                log("Can't continue, stopping")
+                stopSelf()
+            }
+
+            isRunning.value = true
+            log("Service started")
         }
 
-        isRunning.value = true
-        log("Service started")
         return START_STICKY
     }
 
@@ -51,7 +62,7 @@ class ObdService : Service() {
 
     // ---------------- SEQUENCE -----------
 
-    private fun start() : Boolean {
+    private suspend fun start() : Boolean {
         startUsb()
         if(usbPort == null) {
             return false
@@ -64,29 +75,17 @@ class ObdService : Service() {
         endUsb()
         endTcp()
         isRunning.value = false
-        stopSelf(1)
     }
     // ---------------- USB ----------------
 
-    private fun startUsb() {
-        usbPort = USBDeviceSelection.openSelectedDevice()
+    private suspend fun startUsb() {
+        log("Searching for ELM device...")
+        usbPort = USBDeviceSelection.openAndVerifyDevice()
         if(usbPort == null) {
+            log("ELM device not found or permission pending")
             return
         }
-
-        try {
-            usbPort?.setParameters(
-                38400,
-                8,
-                UsbSerialPort.STOPBITS_1,
-                UsbSerialPort.PARITY_NONE
-            )
-
-            log("USB connected")
-
-        } catch (e: Exception) {
-            log("USB error: ${e.message}")
-        }
+        log("USB connected and verified")
     }
 
     private fun endUsb() {

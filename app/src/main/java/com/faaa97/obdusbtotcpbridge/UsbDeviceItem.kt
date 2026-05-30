@@ -1,6 +1,5 @@
 package com.faaa97.obdusbtotcpbridge
 
-import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 
 class UsbDeviceItem(
@@ -10,12 +9,12 @@ class UsbDeviceItem(
 ) {
     companion object {
         fun Create(device: UsbDevice) : UsbDeviceItem {
+            val label = device.productName ?: device.deviceName
             return UsbDeviceItem(
                 device.deviceName,
-                device.deviceName,
+                label,
                 device)
         }
-
     }
 
     override fun toString(): String {
@@ -23,6 +22,4 @@ class UsbDeviceItem(
                 "DID:${device.deviceId}, CLS:${device.deviceClass}, SCLS:${device.deviceSubclass} " +
                 "PROT:${device.deviceProtocol}, INT:${device.interfaceCount}"
     }
-
-
 }

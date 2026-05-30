@@ -2,15 +2,22 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Context.USB_SERVICE
 import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
+import android.os.Build
 import com.hoho.android.usbserial.driver.*
+import kotlinx.coroutines.*
+import kotlin.coroutines.resume
 
 @SuppressLint("StaticFieldLeak")
 object USBDeviceSelection {
+
+    private const val ACTION_USB_PERMISSION = "com.faaa97.obdusbtotcpbridge.USB_PERMISSION"
 
     var deviceOptions : List<UsbDeviceItem> = listOf()
         private set
@@ -24,6 +31,7 @@ object USBDeviceSelection {
     private lateinit var context : Context
 
     fun initialize(context: Context) {
+        if (this::context.isInitialized) return
         this.context = context.applicationContext
         manager = this.context.getSystemService(USB_SERVICE) as UsbManager
     }
@@ -37,116 +45,177 @@ object USBDeviceSelection {
             deviceOptions = drivers.map { driver ->
                 UsbDeviceItem.Create(driver.device)
             }
-            if (deviceOptions.isEmpty()) {
-                log("No USB device found")
-            } else {
-                for (option in deviceOptions) {
-                    log("Found USB device: $option")
+        } catch (e: Exception) {
+            log("Error populating device options: ${e.message}")
+        }
+    }
+
+    /**
+     * Automated flow to find and verify the ELM device.
+     * Suspends until the user grants permission and the device is verified.
+     */
+    suspend fun openAndVerifyDevice() : UsbSerialPort? = withContext(Dispatchers.IO) {
+        if (!isInitialized()) return@withContext null
+
+        val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
+        if (drivers.isEmpty()) {
+            log("No USB devices found")
+            return@withContext null
+        }
+
+        val savedId = PersistedState.savedUsbId
+        // Try the last used device first
+        val sortedDrivers = drivers.sortedByDescending { it.device.deviceName == savedId }
+
+        for (driver in sortedDrivers) {
+            val device = driver.device
+            log("Checking device: ${device.deviceName}")
+
+            if (!manager.hasPermission(device)) {
+                log("Permission required for ${device.deviceName}. Requesting...")
+                
+                val granted = try {
+                    withTimeout(30000) {
+                        requestPermissionSuspend(device)
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    false
+                }
+                
+                if (!granted) {
+                    log("Permission denied or timeout for ${device.deviceName}")
+                    continue
                 }
             }
+
+            val connection = manager.openDevice(device) ?: continue
+            val port = driver.ports.getOrNull(0) ?: continue
+
+            try {
+                port.open(connection)
+                if (verifyElm(port)) {
+                    val deviceItem = UsbDeviceItem.Create(device)
+                    withContext(Dispatchers.Main) {
+                        selectedDeviceOption.value = deviceItem.id
+                    }
+                    selectedDeviceDriver = driver
+                    PersistedState.setSavedUsbId(deviceItem.id)
+                    log("Verified ELM device: ${deviceItem.id} (${deviceItem.device.serialNumber})")
+                    return@withContext port
+                }
+                port.close()
+            } catch (e: Exception) {
+                log("Verification error on ${device.deviceName}: ${e.message}")
+                try { port.close() } catch (ex: Exception) {}
+            }
+        }
+
+        log("No verified ELM device found among connected devices")
+        null
+    }
+
+    private suspend fun verifyElm(port: UsbSerialPort): Boolean {
+        return try {
+            port.setParameters(38400, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+            log("Sending ATZ...")
+            port.write("ATZ\r".toByteArray(), 1000)
+
+            val buffer = ByteArray(1024)
+            val startTime = System.currentTimeMillis()
+            val responseBuilder = StringBuilder()
+            
+            // Wait up to 2 seconds for "ELM" response
+            while (System.currentTimeMillis() - startTime < 2000) {
+                val len = port.read(buffer, 500)
+                if (len > 0) {
+                    responseBuilder.append(String(buffer, 0, len))
+                    if (responseBuilder.contains("ELM", ignoreCase = true)) {
+                        log("Response: ${responseBuilder.toString().trim()}")
+                        return true
+                    }
+                }
+                delay(100)
+            }
+            false
         } catch (e: Exception) {
-            log("Error while trying to populate device options: ${e.message}")
+            false
         }
     }
 
     fun trySelectDevice(userSelection: Int = -1, deviceSelected: (UsbDeviceItem) -> Unit = {}) {
         if (!isInitialized()) return
-        try {
-            if (deviceOptions.isEmpty()) {
-                populateDeviceOptions()
-            }
+        populateDeviceOptions()
 
-            val id = if (userSelection != -1 && userSelection < deviceOptions.size) {
-                deviceOptions[userSelection].id
-            } else {
-                PersistedState.savedUsbId
-            }
-
-            if (id == null) {
-                log("No USB device selected")
-                selectedDeviceDriver = null
-                selectedDeviceOption.value = null
-                return
-            }
-
-            val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
-            val driver = drivers.find { d ->
-                UsbDeviceItem.Create(d.device).id == id
-            }
-
-            if (driver == null) {
-                log("Selected device not found among connected devices")
-                selectedDeviceDriver = null
-                selectedDeviceOption.value = null
-                return
-            }
-
-            val device = UsbDeviceItem.Create(driver.device)
-            selectedDeviceOption.value = device.id
-            selectedDeviceDriver = driver
-
-            PersistedState.setSavedUsbId(selectedDeviceOption.value.toString())
-            deviceSelected(device)
-
-        } catch (e: Exception) {
-            log("Error while trying to select a device: ${e.message}")
+        val id = if (userSelection != -1 && userSelection < deviceOptions.size) {
+            deviceOptions[userSelection].id
+        } else {
+            PersistedState.savedUsbId
         }
+
+        if (id == null) return
+
+        val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
+        val driver = drivers.find { it.device.deviceName == id } ?: return
+
+        val device = UsbDeviceItem.Create(driver.device)
+        selectedDeviceOption.value = device.id
+        selectedDeviceDriver = driver
+        PersistedState.setSavedUsbId(device.id)
+        deviceSelected(device)
     }
 
     fun openSelectedDevice() : UsbSerialPort? {
-        if (!isInitialized()) {
-            log("USB Selection not initialized")
-            return null
+        val driver = selectedDeviceDriver ?: return null
+        return try {
+            val connection = manager.openDevice(driver.device) ?: return null
+            val port = driver.ports.getOrNull(0) ?: return null
+            port.open(connection)
+            port
+        } catch (e: Exception) {
+            null
         }
+    }
 
-        val driver = selectedDeviceDriver ?: run {
-            log("No USB device selected")
-            return null
-        }
-
-        try {
-            var connection = manager.openDevice(driver.device)
-            if (connection == null) {
-                requestPermission(driver.device)
-                if (manager.hasPermission(driver.device)) {
-                    connection = manager.openDevice(driver.device)
-                }
-
-                if (connection == null) {
-                    log("USB permission missing or failed to open connection")
-                    return null
+    private suspend fun requestPermissionSuspend(usbDevice: UsbDevice): Boolean = suspendCancellableCoroutine { continuation ->
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (ACTION_USB_PERMISSION == intent.action) {
+                    try {
+                        context.unregisterReceiver(this)
+                    } catch (e: Exception) {}
+                    val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                    if (continuation.isActive) continuation.resume(granted)
                 }
             }
-
-            val usbPort = driver.ports.getOrNull(0) ?: run {
-                log("No ports found on device")
-                return null
-            }
-
-            usbPort.open(connection)
-            return usbPort
-        } catch (e: Exception) {
-            log("Error while opening selected device: ${e.message}")
-            return null
         }
-    }
 
-    private fun requestPermission(usbDevice: UsbDevice) {
-        if (!isInitialized()) return
-        try {
-            val permissionIntent = PendingIntent.getBroadcast(
-                context,
-                0,
-                Intent("com.faaa97.obdusbtotcpbridge.USB_PERMISSION"),
-                PendingIntent.FLAG_IMMUTABLE
-            )
-            manager.requestPermission(usbDevice, permissionIntent)
-        } catch (e: Exception) {
-            log("Error while requesting permission: ${e.message}")
+        val filter = IntentFilter(ACTION_USB_PERMISSION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            context.registerReceiver(receiver, filter)
         }
+
+        val intent = Intent(ACTION_USB_PERMISSION).apply {
+            `package` = context.packageName
+        }
+
+        val permissionIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_MUTABLE
+        )
+
+        continuation.invokeOnCancellation {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (e: Exception) {}
+        }
+
+        manager.requestPermission(usbDevice, permissionIntent)
     }
 
-    private fun log(msg: String) {
-        ObdLogBus.log(msg)
-    }
+    private fun log(msg: String) = ObdLogBus.log(msg)
 }
