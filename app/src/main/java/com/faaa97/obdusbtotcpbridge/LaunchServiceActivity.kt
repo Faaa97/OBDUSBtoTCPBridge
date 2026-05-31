@@ -13,20 +13,8 @@ class LaunchServiceActivity : Activity()  {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
-        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED))
-
         start()
         finish()
-    }
-
-    private val usbReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action ||
-                UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
-                start()
-            }
-        }
     }
 
     private fun start() {
