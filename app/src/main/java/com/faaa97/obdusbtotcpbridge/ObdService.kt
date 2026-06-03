@@ -2,6 +2,7 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.app.*
 import android.content.*
+import android.hardware.usb.UsbManager
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
@@ -19,6 +20,21 @@ class ObdService : Service() {
         const val CHANNEL_ID = "obd_channel"
         var isRunning : Observable<Boolean> = Observable(false)
             private set
+    }
+
+    private var isAutoConnectEnabled = false
+
+    private val usbReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action) {
+                // Trigger the USB logic when plugged in
+                serviceScope.launch {
+                    if(usbPort == null){
+                        start()
+                    }
+                }
+            }
+        }
     }
 
     private var serverSocket: ServerSocket? = null
@@ -39,9 +55,19 @@ class ObdService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val autoConnect = intent?.getBooleanExtra("EXTRA_AUTO_CONNECT", false) ?: false
+        if (autoConnect && !isAutoConnectEnabled) {
+            isAutoConnectEnabled = true
+            val filter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            registerReceiver(usbReceiver, filter)
+        }
+
         serviceScope.launch {
             if(!start()) {
                 log("Can't continue, stopping")
+                if(isAutoConnectEnabled){
+                    return@launch
+                }
                 stopSelf()
             }
 
@@ -55,6 +81,9 @@ class ObdService : Service() {
     override fun onDestroy() {
         end()
         log("Service stopped")
+        if (isAutoConnectEnabled) {
+            unregisterReceiver(usbReceiver)
+        }
         super.onDestroy()
     }
 

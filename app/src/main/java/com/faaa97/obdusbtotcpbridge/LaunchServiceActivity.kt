@@ -12,17 +12,20 @@ class LaunchServiceActivity : Activity()  {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        ObdLogBus.log("LaunchServiceActivity...")
         start()
         finish()
     }
 
     private fun start() {
         USBDeviceSelection.populateDeviceOptions()
-        USBDeviceSelection.trySelectDevice()
 
-        val intent = Intent(this, ObdService::class.java)
         if(!ObdService.isRunning.value) {
+            ObdLogBus.log("Launching service with auto-reconnect...")
+            val intent = Intent(this, ObdService::class.java).apply {
+                putExtra("EXTRA_AUTO_CONNECT", true)
+            }
+
             startService(intent)
         }
     }
