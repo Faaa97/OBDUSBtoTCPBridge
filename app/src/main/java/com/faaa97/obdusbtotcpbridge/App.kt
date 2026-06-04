@@ -8,6 +8,7 @@ class App : Application() {
         super.onCreate()
 
         ObdLogBus.initFileLogging(this)
+        ObdLogBus.log("----- App started -----")
         initializePersistedState()
         USBDeviceSelection.initialize(this)
     }

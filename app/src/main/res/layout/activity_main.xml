@@ -9,7 +9,7 @@
     <LinearLayout
         android:id="@+id/controls_layout"
         android:layout_width="0dp"
-        android:layout_height="266dp"
+        android:layout_height="330dp"
         android:layout_marginStart="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="8dp"
@@ -18,7 +18,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintWidth_max="300dp">
+        app:layout_constraintWidth_max="350dp">
 
         <Spinner
             android:id="@+id/device_dropdown"
@@ -30,6 +30,30 @@
             android:layout_width="match_parent"
             android:layout_height="42dp"
             android:layout_marginTop="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/share_logs_button"
+                android:layout_width="150dp"
+                android:layout_height="50dp"
+                android:layout_marginTop="0dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:text="Share logs" />
+
+            <Button
+                android:id="@+id/clear_logs_button"
+                android:layout_width="150dp"
+                android:layout_height="50dp"
+                android:layout_marginTop="0dp"
+                android:layout_weight="1"
+                android:text="Clear log files" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"

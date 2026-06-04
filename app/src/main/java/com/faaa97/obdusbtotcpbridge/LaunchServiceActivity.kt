@@ -1,20 +1,21 @@
 package com.faaa97.obdusbtotcpbridge
 
 import android.app.Activity
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.hardware.usb.UsbManager
 import android.os.Bundle
 
 class LaunchServiceActivity : Activity()  {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ObdLogBus.log("LaunchServiceActivity...")
+        ObdLogBus.log("----- LaunchServiceActivity -----")
         start()
         finish()
+    }
+
+    override fun onDestroy() {
+        ObdLogBus.log("----- (LaunchServiceActivity) -----")
+        super.onDestroy()
     }
 
     private fun start() {

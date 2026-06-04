@@ -7,8 +7,10 @@ import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlin.io.path.exists
 
 
 class MainActivity : AppCompatActivity() {
@@ -20,14 +22,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        ObdLogBus.log("----- MainActivity -----")
+
         registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
         registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED))
 
         initializeLoggingView()
         initializeDeviceDropdown()
+        initializeLogButtons()
         initializeMainButton()
         initializeToggles()
         autoStart()
+    }
+
+    override fun onDestroy() {
+        ObdLogBus.log("----- (MainActivity) -----")
+        super.onDestroy()
     }
 
     private val usbReceiver = object : BroadcastReceiver() {
@@ -126,6 +136,18 @@ class MainActivity : AppCompatActivity() {
         dropdown.adapter = adapter
     }
 
+    private fun initializeLogButtons() {
+        val shareLogsButton = this.findViewById<Button>(R.id.share_logs_button)
+        shareLogsButton.setOnClickListener {
+            shareLogFiles(this)
+        }
+
+        val clearLogsButton = this.findViewById<Button>(R.id.clear_logs_button)
+        clearLogsButton.setOnClickListener {
+            clearAllLogs(this)
+        }
+    }
+
     private fun initializeToggles() {
         val logsButton = this.findViewById<ToggleButton>(R.id.logs_button)
         logsButton.setOnCheckedChangeListener { _, isOn ->
@@ -148,6 +170,49 @@ class MainActivity : AppCompatActivity() {
         if(PersistedState.isAutoStartEnabled && !ObdService.isRunning.value){
             manageService()
         }
+    }
+
+    fun shareLogFiles(context: Context) {
+        val logFiles = ObdLogBus.getAllLogFiles(context)
+        if (logFiles.isEmpty()) {
+            ObdLogBus.log("No log files found to share")
+            Toast.makeText(context, "No log files found to share", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val uris = logFiles.map { file ->
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.provider",
+                file
+            )
+        }
+
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "text/plain"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            // Ensure the chooser can see the URIs by adding them to ClipData
+            clipData = ClipData.newRawUri("Logs", uris[0]).apply {
+                for (i in 1 until uris.size) {
+                    addItem(ClipData.Item(uris[i]))
+                }
+            }
+        }
+
+        val chooser = Intent.createChooser(intent, "Share Logs")
+        // Check if there is an activity that can handle the intent before starting
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(chooser)
+        } else {
+            ObdLogBus.log("No app found to share logs")
+            Toast.makeText(context, "No app found to share logs", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun clearAllLogs(context: Context) {
+        val logFiles = ObdLogBus.getAllLogFiles(context)
+        logFiles.forEach { it.delete() }
     }
 
 }

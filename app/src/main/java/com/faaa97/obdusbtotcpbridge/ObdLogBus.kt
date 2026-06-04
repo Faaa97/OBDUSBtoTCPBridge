@@ -61,4 +61,10 @@ object ObdLogBus {
             }
         }
     }
+
+    fun getAllLogFiles(context: Context): List<File> {
+        return context.filesDir.listFiles { file ->
+            file.name.startsWith("obd_logs_") && file.name.endsWith(".txt")
+        }?.toList() ?: emptyList()
+    }
 }
