@@ -130,7 +130,9 @@ class ObdService : Service() {
     private fun startTcp() {
         Thread {
             try {
-                serverSocket = ServerSocket(35000)
+                serverSocket = ServerSocket()
+                serverSocket?.reuseAddress = true // FIX: Allow port reuse immediately
+                serverSocket?.bind(java.net.InetSocketAddress(35000))
                 log("TCP listening on 35000")
 
                 tcpSocket = serverSocket?.accept()
@@ -143,6 +145,7 @@ class ObdService : Service() {
 
             } catch (e: Exception) {
                 log("TCP error: ${e.message}")
+                end()
             }
         }.start()
     }
