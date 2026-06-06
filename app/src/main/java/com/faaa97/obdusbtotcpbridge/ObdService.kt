@@ -8,8 +8,11 @@ import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.*
 import java.net.ServerSocket
 import java.net.Socket
@@ -23,6 +26,7 @@ class ObdService : Service() {
     }
 
     private var isAutoConnectEnabled = false
+    private var isConnecting = false
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -47,6 +51,8 @@ class ObdService : Service() {
         SupervisorJob() + Dispatchers.IO
     )
 
+    private var bridgeJob: Job? = null
+
 
     override fun onCreate() {
         super.onCreate()
@@ -63,16 +69,23 @@ class ObdService : Service() {
         }
 
         serviceScope.launch {
-            if(!start()) {
-                log("Can't continue, stopping")
-                if(isAutoConnectEnabled){
-                    return@launch
-                }
-                stopSelf()
+            if (isConnecting || isRunning.value) {
+                log("Service already connecting or running, ignoring request.")
+                return@launch
             }
 
-            isRunning.value = true
-            log("Service started")
+            isConnecting = true
+            try {
+                if(!start()) {
+                    log("Can't continue, stopping")
+                    if(!isAutoConnectEnabled) stopSelf()
+                } else {
+                    isRunning.value = true
+                    log("Service started")
+                }
+            } finally {
+                isConnecting = false
+            }
         }
 
         return START_STICKY
@@ -101,9 +114,11 @@ class ObdService : Service() {
     }
 
     private fun end() {
+        isRunning.value = false
+        bridgeJob?.cancel() // Stop the loops
+        bridgeJob = null
         endUsb()
         endTcp()
-        isRunning.value = false
     }
     // ---------------- USB ----------------
 
@@ -127,90 +142,101 @@ class ObdService : Service() {
 
     // ---------------- TCP ----------------
 
-    private fun startTcp() {
-        Thread {
-            try {
-                serverSocket = ServerSocket()
-                serverSocket?.reuseAddress = true // FIX: Allow port reuse immediately
-                serverSocket?.bind(java.net.InetSocketAddress(35000))
-                log("TCP listening on 35000")
+    private suspend fun startTcp() = withContext(Dispatchers.IO) {
+        try {
+            endTcp()
 
-                tcpSocket = serverSocket?.accept()
-                tcpIn = tcpSocket!!.getInputStream()
-                tcpOut = tcpSocket!!.getOutputStream()
+            val socket = ServerSocket()
+            socket.reuseAddress = true
+            socket.bind(java.net.InetSocketAddress(35000))
+            serverSocket = socket
+            log("TCP listening on 35000")
 
-                log("TCP client connected")
+            val client = socket.accept()
+            tcpSocket = client
+            tcpIn = client.getInputStream()
+            tcpOut = client.getOutputStream()
 
-                startBridge()
+            log("TCP client connected")
+            startBridge()
 
-            } catch (e: Exception) {
-                log("TCP error: ${e.message}")
-                end()
-            }
-        }.start()
+        } catch (e: Exception) {
+            log("TCP error: ${e.message}")
+            end()
+        }
     }
 
     private fun endTcp() {
-        serverSocket?.close()
-        tcpSocket?.close()
-        log("TCP client closed")
+        try {
+            tcpIn?.close()
+            tcpOut?.close()
+            tcpSocket?.close()
+            serverSocket?.close()
+        } catch (e: Exception) {
+            // Ignore closure errors
+        } finally {
+            tcpIn = null
+            tcpOut = null
+            tcpSocket = null
+            serverSocket = null
+        }
+        log("TCP connections closed")
     }
 
     // ---------------- BRIDGE ----------------
 
     private fun startBridge() {
+        bridgeJob?.cancel()
 
-        // TCP → USB
-        Thread {
-            val buffer = ByteArray(1024)
-            val request = StringBuilder()
-
-            while (isRunning.value) {
+        bridgeJob = serviceScope.launch(Dispatchers.IO) {
+            // TCP → USB Loop
+            launch {
+                val buffer = ByteArray(1024)
+                val request = StringBuilder()
                 try {
-                    val len = tcpIn?.read(buffer) ?: break
-                    if (len > 0) {
-                        val data = String(buffer, 0, len)
-                        request.append(data)
+                    while (isActive && isRunning.value) {
+                        val len = tcpIn?.read(buffer) ?: -1
+                        if (len == -1) break // Connection closed
 
-                        if (request.contains("\r")) {
-                            usbPort?.write(request.toString().toByteArray(), 1000)
-                            log("TCP → USB: $request")
-                            request.clear()
+                        if (len > 0) {
+                            val data = String(buffer, 0, len)
+                            request.append(data)
+                            if (request.contains("\r")) {
+                                usbPort?.write(request.toString().toByteArray(), 1000)
+                                log("TCP → USB: $request")
+                                request.clear()
+                            }
                         }
                     }
                 } catch (e: Exception) {
                     log("TCP→USB error: ${e.message}")
                     end()
-                    break
                 }
             }
-        }.start()
 
-        // USB → TCP
-        Thread {
-            val buffer = ByteArray(1024)
-            val response = StringBuilder()
-
-            while (isRunning.value) {
+            // USB → TCP Loop
+            launch {
+                val buffer = ByteArray(1024)
+                val response = StringBuilder()
                 try {
-                    val len = usbPort?.read(buffer, 1000) ?: break
-                    if (len > 0) {
-                        val data = String(buffer, 0, len)
-                        response.append(data)
-
-                        if (response.contains(">")) {
-                            tcpOut?.write(response.toString().toByteArray())
-                            log("USB → TCP: $response")
-                            response.clear()
+                    while (isActive && isRunning.value) {
+                        val len = usbPort?.read(buffer, 1000) ?: 0
+                        if (len > 0) {
+                            val data = String(buffer, 0, len)
+                            response.append(data)
+                            if (response.contains(">")) {
+                                tcpOut?.write(response.toString().toByteArray())
+                                log("USB → TCP: $response")
+                                response.clear()
+                            }
                         }
                     }
                 } catch (e: Exception) {
                     log("USB→TCP error: ${e.message}")
                     end()
-                    break
                 }
             }
-        }.start()
+        }
     }
 
     // ---------------- LOGGING ----------------
