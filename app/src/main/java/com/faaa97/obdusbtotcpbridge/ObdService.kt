@@ -12,6 +12,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.*
 import java.net.ServerSocket
@@ -26,17 +28,14 @@ class ObdService : Service() {
     }
 
     private var isAutoConnectEnabled = false
-    private var isConnecting = false
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action) {
-                // Trigger the USB logic when plugged in
-                serviceScope.launch {
-                    if(usbPort == null){
-                        start()
-                    }
+                val startIntent = Intent(context, ObdService::class.java).apply {
+                    putExtra("EXTRA_AUTO_CONNECT", isAutoConnectEnabled)
                 }
+                context.startService(startIntent)
             }
         }
     }
@@ -52,6 +51,8 @@ class ObdService : Service() {
     )
 
     private var bridgeJob: Job? = null
+
+    private val startMutex = Mutex()
 
 
     override fun onCreate() {
@@ -69,22 +70,19 @@ class ObdService : Service() {
         }
 
         serviceScope.launch {
-            if (isConnecting || isRunning.value) {
-                log("Service already connecting or running, ignoring request.")
-                return@launch
-            }
+            startMutex.withLock {
+                if (isRunning.value) {
+                    log("Service already running, ignoring request.")
+                    return@launch
+                }
 
-            isConnecting = true
-            try {
                 if(!start()) {
                     log("Can't continue, stopping")
                     if(!isAutoConnectEnabled) stopSelf()
                 } else {
                     isRunning.value = true
-                    log("Service started")
+                    log("Service started and running")
                 }
-            } finally {
-                isConnecting = false
             }
         }
 
