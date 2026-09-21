@@ -14,22 +14,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
-import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.ServerSocket
-import java.net.Socket
 
 class ObdService : Service() {
 
@@ -43,8 +37,6 @@ class ObdService : Service() {
             private set
     }
 
-    private class UsbFailure(cause: Throwable) : Exception(cause.message, cause)
-
     private var isAutoConnectEnabled = false
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -55,8 +47,7 @@ class ObdService : Service() {
 
     @Volatile private var sessionJob: Job? = null
     @Volatile private var usbPort: UsbSerialPort? = null
-    @Volatile private var serverSocket: ServerSocket? = null
-    @Volatile private var activeClient: Socket? = null
+    @Volatile private var bridge: TcpUsbBridge? = null
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -137,7 +128,7 @@ class ObdService : Service() {
     }
 
     private suspend fun runLoop() {
-        var backoff = MIN_BACKOFF_MS
+        val backoff = Backoff(MIN_BACKOFF_MS, MAX_BACKOFF_MS)
 
         while (currentCoroutineContext().isActive) {
             val port = try {
@@ -165,13 +156,13 @@ class ObdService : Service() {
                     usbPort = null
                 }
                 if (SystemClock.elapsedRealtime() - startedAt > STABLE_SESSION_MS) {
-                    backoff = MIN_BACKOFF_MS
+                    backoff.reset()
                 }
             }
 
-            log("Retrying in ${backoff / 1000}s")
-            val woken = withTimeoutOrNull(backoff) { wakeSignal.receive(); true } == true
-            backoff = if (woken) MIN_BACKOFF_MS else minOf(backoff * 2, MAX_BACKOFF_MS)
+            log("Retrying in ${backoff.delayMs / 1000}s")
+            val woken = withTimeoutOrNull(backoff.delayMs) { wakeSignal.receive(); true } == true
+            if (woken) backoff.reset() else backoff.increase()
         }
     }
 
@@ -200,138 +191,28 @@ class ObdService : Service() {
         try {
             server.reuseAddress = true
             server.bind(InetSocketAddress(TCP_PORT))
-            serverSocket = server
-            log("TCP listening on $TCP_PORT")
-
-            coroutineScope {
-                val closer = closeOnCancel(server)
-                try {
-                    while (true) {
-                        val client = try {
-                            server.accept()
-                        } catch (e: IOException) {
-                            currentCoroutineContext().ensureActive() // Closed because of cancellation
-                            throw e
-                        }
-                        activeClient = client
-                        log("TCP client connected")
-                        try {
-                            serveClient(client, port)
-                        } finally {
-                            closeQuietly(client)
-                            activeClient = null
-                        }
-                        log("TCP client disconnected")
-                    }
-                } finally {
-                    closer.cancel()
-                }
-            }
-        } finally {
-            closeQuietly(server)
-            serverSocket = null
-        }
-    }
-
-    private suspend fun serveClient(client: Socket, port: UsbSerialPort) {
-        val input = client.getInputStream()
-        val output = client.getOutputStream()
-
-        // Discard anything left from a previous client
-        try {
-            val trash = ByteArray(1024)
-            while (port.read(trash, 50) > 0) { /* drain */ }
         } catch (e: Exception) {
-            throw UsbFailure(e)
+            closeQuietly(server)
+            throw e
         }
 
-        coroutineScope {
-            val closer = closeOnCancel(client) // Unblocks the blocking socket read
-            val tcpToUsb = launch { tcpToUsbLoop(input, port) }
-            val usbToTcp = launch { usbToTcpLoop(output, port) }
-
-            select<Unit> {
-                tcpToUsb.onJoin { }
-                usbToTcp.onJoin { }
-            }
-            // One side is done (client left): stop the other one. A UsbFailure never gets here,
-            // it fails the scope and is rethrown by coroutineScope.
-            closer.cancel()
-            coroutineContext.cancelChildren()
-        }
-    }
-
-    private suspend fun tcpToUsbLoop(input: java.io.InputStream, port: UsbSerialPort) {
-        val buffer = ByteArray(1024)
-        val request = StringBuilder()
-
-        while (currentCoroutineContext().isActive) {
-            val len = try {
-                input.read(buffer)
-            } catch (e: IOException) {
-                return // Client gone or socket closed
-            }
-            if (len == -1) return // Connection closed
-
-            if (len > 0) {
-                request.append(String(buffer, 0, len))
-                if (request.contains("\r")) {
-                    try {
-                        port.write(request.toString().toByteArray(), 1000)
-                    } catch (e: Exception) {
-                        throw UsbFailure(e)
-                    }
-                    log("TCP → USB: $request")
-                    request.clear()
-                }
-            }
-        }
-    }
-
-    private suspend fun usbToTcpLoop(output: java.io.OutputStream, port: UsbSerialPort) {
-        val buffer = ByteArray(1024)
-        val response = StringBuilder()
-
-        while (currentCoroutineContext().isActive) {
-            val len = try {
-                port.read(buffer, 1000)
-            } catch (e: Exception) {
-                throw UsbFailure(e)
-            }
-            if (len < 0) throw UsbFailure(IOException("USB read returned $len"))
-
-            if (len > 0) {
-                response.append(String(buffer, 0, len))
-                if (response.contains(">")) {
-                    try {
-                        output.write(response.toString().toByteArray())
-                        output.flush()
-                    } catch (e: IOException) {
-                        return // Client gone
-                    }
-                    log("USB → TCP: $response")
-                    response.clear()
-                }
-            }
+        val newBridge = TcpUsbBridge(port.asSerialLink(), server, ::log)
+        bridge = newBridge
+        log("TCP listening on $TCP_PORT")
+        try {
+            newBridge.run()
+        } finally {
+            newBridge.close()
+            bridge = null
         }
     }
 
     // ---------------- CLEANUP ----------------
 
-    private fun CoroutineScope.closeOnCancel(closeable: Closeable): Job = launch {
-        try {
-            awaitCancellation()
-        } finally {
-            closeQuietly(closeable)
-        }
-    }
-
     private fun closeAll() {
-        closeQuietly(activeClient)
-        closeQuietly(serverSocket)
+        bridge?.close()
         closeQuietly(usbPort)
-        activeClient = null
-        serverSocket = null
+        bridge = null
         usbPort = null
     }
 

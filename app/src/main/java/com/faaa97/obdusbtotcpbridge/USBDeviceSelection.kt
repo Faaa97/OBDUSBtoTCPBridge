@@ -121,26 +121,7 @@ object USBDeviceSelection {
     private suspend fun verifyElm(port: UsbSerialPort): Boolean {
         return try {
             port.setParameters(38400, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
-            log("Sending ATZ...")
-            port.write("ATZ\r".toByteArray(), 1000)
-
-            val buffer = ByteArray(1024)
-            val startTime = System.currentTimeMillis()
-            val responseBuilder = StringBuilder()
-            
-            // Wait up to 2 seconds for "ELM" response
-            while (System.currentTimeMillis() - startTime < 2000) {
-                val len = port.read(buffer, 500)
-                if (len > 0) {
-                    responseBuilder.append(String(buffer, 0, len))
-                    if (responseBuilder.contains("ELM", ignoreCase = true)) {
-                        log("Response: ${responseBuilder.toString().trim()}")
-                        return true
-                    }
-                }
-                delay(100)
-            }
-            false
+            ElmVerifier.verify(port.asSerialLink(), log = ::log)
         } catch (e: Exception) {
             false
         }
