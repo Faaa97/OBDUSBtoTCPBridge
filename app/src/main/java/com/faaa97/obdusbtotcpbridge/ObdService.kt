@@ -25,6 +25,7 @@ class ObdService : Service() {
         const val CHANNEL_ID = "obd_channel"
         var isRunning : Observable<Boolean> = Observable(false)
             private set
+        private val startMutex = Mutex()
     }
 
     private var isAutoConnectEnabled = false
@@ -52,8 +53,6 @@ class ObdService : Service() {
 
     private var bridgeJob: Job? = null
 
-    private val startMutex = Mutex()
-
 
     override fun onCreate() {
         super.onCreate()
@@ -69,10 +68,15 @@ class ObdService : Service() {
             registerReceiver(usbReceiver, filter)
         }
 
+        if (isRunning.value) {
+            log("Service already running, ignoring request.")
+            return START_STICKY
+        }
+
         serviceScope.launch {
             startMutex.withLock {
                 if (isRunning.value) {
-                    log("Service already running, ignoring request.")
+                    log("Service already running, ignoring request (inside lock).")
                     return@launch
                 }
 
@@ -80,7 +84,9 @@ class ObdService : Service() {
                     log("Can't continue, stopping")
                     if(!isAutoConnectEnabled) stopSelf()
                 } else {
-                    isRunning.value = true
+                    withContext(Dispatchers.Main) {
+                        isRunning.value = true
+                    }
                     log("Service started and running")
                 }
             }
@@ -103,16 +109,22 @@ class ObdService : Service() {
     // ---------------- SEQUENCE -----------
 
     private suspend fun start() : Boolean {
-        startUsb()
-        if(usbPort == null) {
-            return false
+        return try {
+            startUsb()
+            if (usbPort == null) {
+                return false
+            }
+            startTcp()
+            true
+        } catch (e: Exception) {
+            false
         }
-        startTcp()
-        return true
     }
 
     private fun end() {
-        isRunning.value = false
+        serviceScope.launch(Dispatchers.Main) {
+            isRunning.value = false
+        }
         bridgeJob?.cancel() // Stop the loops
         bridgeJob = null
         endUsb()
@@ -150,17 +162,27 @@ class ObdService : Service() {
             serverSocket = socket
             log("TCP listening on 35000")
 
-            val client = socket.accept()
-            tcpSocket = client
-            tcpIn = client.getInputStream()
-            tcpOut = client.getOutputStream()
+            serviceScope.launch {
+                try {
+                    val client = socket.accept()
+                    tcpSocket = client
+                    tcpIn = client.getInputStream()
+                    tcpOut = client.getOutputStream()
 
-            log("TCP client connected")
-            startBridge()
+                    log("TCP client connected")
+                    startBridge()
+                } catch (e: Exception) {
+                    if (isRunning.value) {
+                        log("TCP accept error: ${e.message}")
+                        end()
+                    }
+                }
+            }
 
         } catch (e: Exception) {
             log("TCP error: ${e.message}")
             end()
+            throw e
         }
     }
 
