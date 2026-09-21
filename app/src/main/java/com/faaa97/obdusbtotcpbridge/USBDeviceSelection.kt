@@ -101,6 +101,10 @@ object USBDeviceSelection {
                     selectedDeviceDriver = driver
                     PersistedState.setSavedUsbId(deviceItem.id)
                     log("Verified ELM device: ${deviceItem.id} (${deviceItem.device.serialNumber})")
+                    if (!isActive) { // Cancelled meanwhile, the caller will never get the port
+                        try { port.close() } catch (ex: Exception) {}
+                        return@withContext null
+                    }
                     return@withContext port
                 }
                 port.close()

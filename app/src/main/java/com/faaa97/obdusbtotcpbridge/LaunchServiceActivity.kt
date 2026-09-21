@@ -21,13 +21,15 @@ class LaunchServiceActivity : Activity()  {
     private fun start() {
         USBDeviceSelection.populateDeviceOptions()
 
-        if(!ObdService.isRunning.value) {
-            ObdLogBus.log("Launching service with auto-reconnect...")
-            val intent = Intent(this, ObdService::class.java).apply {
-                putExtra("EXTRA_AUTO_CONNECT", true)
-            }
+        ObdLogBus.log("Launching service with auto-reconnect...")
+        val intent = Intent(this, ObdService::class.java).apply {
+            putExtra("EXTRA_AUTO_CONNECT", true)
+        }
 
+        try {
             startService(intent)
+        } catch (e: Exception) {
+            ObdLogBus.log("Failed to start service: ${e.message}")
         }
     }
 
