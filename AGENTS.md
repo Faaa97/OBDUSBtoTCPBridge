@@ -86,6 +86,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`, `build.yml` for the build server). `build.yml` hasn't run on the server yet, but `testDebugUnitTest lintDebug` pass locally. Releases stay debug-signed until the user adds a release keystore (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010). The UI refresh (D-012: landscape dashboard, detected device shown instead of a dropdown) is in PR #2 and hasn't been tried on the head unit yet.
+Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`, `build.yml` for the build server). The repo is turned on in the build server, so `build.yml` CI (`testDebugUnitTest lintDebug`) runs on every push to a PR or `master`. The server's Android image lacks `platforms;android-36.1`, so each run downloads it (AGP installs it by itself). Releases stay debug-signed until the user adds a release keystore (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010). The UI refresh (D-012: landscape dashboard, detected device shown instead of a dropdown) is in PR #2 and hasn't been tried on the head unit yet.
 
-Next: the user tries PR #2 on the head unit; turns the repo on in the build server and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port.
+Next: the user tries PR #2 on the head unit and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port.
