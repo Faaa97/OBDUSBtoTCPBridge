@@ -86,6 +86,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template: `AGENTS.md`, backfilled `DESIGN.md`, and `build.yml` for the build server in place of the GitHub Actions workflow. `build.yml` hasn't run yet. Releases stay debug-signed until the user adds a release keystore to the build server (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010).
+Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`, `build.yml` for the build server). `build.yml` hasn't run on the server yet, but `testDebugUnitTest lintDebug` pass locally. Releases stay debug-signed until the user adds a release keystore (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010). The UI refresh (D-012: landscape dashboard, detected device shown instead of a dropdown) is in PR #2 and hasn't been tried on the head unit yet.
 
-Next: the user turns the repo on in the build server, checks the first CI run (lint may flag existing code) and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port, UI refresh.
+Next: the user tries PR #2 on the head unit; turns the repo on in the build server and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port.

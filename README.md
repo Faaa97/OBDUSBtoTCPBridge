@@ -8,7 +8,7 @@ Small Android app that lets a **USB OBD2 adapter (ELM327)** work with apps that 
 - Serves it on TCP port **35000**. In your OBD2 app, choose a WiFi adapter at `127.0.0.1`, port `35000`.
 - Runs as a foreground service that reconnects by itself when the adapter is unplugged or the app disconnects.
 - The **"Start ODBUSBToTCPBridge Service"** launcher starts the service with no UI, so the head unit can launch it on boot.
-- The main app shows logs, and can share or clear the log files.
+- The main app is a landscape dashboard for the head unit: the detected USB device, service status, a large Start/Stop button, autostart and logging switches, and a live log. It can share or clear the log files.
 
 ## Build
 

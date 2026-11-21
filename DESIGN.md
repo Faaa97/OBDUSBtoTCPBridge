@@ -39,7 +39,7 @@ The MVP is built and in daily use (version 0.1.0).
 - Bridge it to a TCP server on port 35000, one client at a time.
 - A foreground service that survives repeated starts and reconnects when the adapter or the client goes away.
 - A headless launcher activity the head unit can start on boot.
-- A small UI: start/stop, device list, logging and autostart toggles, share and clear logs.
+- A small UI: start/stop, the detected device and service status, logging and autostart toggles, share and clear logs, live log (D-012).
 
 ### Out of scope (for the MVP)
 
@@ -159,6 +159,15 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Alternatives considered:** none.
 - **Consequences:** the first signed release has a different signature from the debug builds, so the head unit needs one uninstall and reinstall, which wipes the app's saved settings (autostart, logging toggle, saved device). The keystore and its passwords must be backed up: losing them means every later update needs that uninstall again.
 
+### D-012: Landscape dashboard UI that shows the detected device instead of a selector
+
+- **Date:** 2026-11-21
+- **Status:** Accepted
+- **Context:** The UI was a narrow centered column with small buttons, a tiny log and a device dropdown that D-006 made pointless. It runs on a ~9" landscape head unit (1920x768 or similar) and is tapped while in the car.
+- **Decision:** `MainActivity` is a two-column, always-dark dashboard with no action bar. The left column (~40%) has a status card (USB device and service state with colored dots), a full-width 88dp Start/Stop button (green/red) and 72dp tiles for the Auto start and Logging switches and the Share/Clear log files buttons; it scrolls if the screen is too short. The right column (~60%) is the full-height live log. The device is display-only: `USBDeviceSelection.findCompatibleDevice()` shows the device in use, else the saved one, else the first serial device found, and never changes what the service uses; it refreshes on USB attach/detach and on resume. Start needs a detected device; Stop is always enabled. The on-screen log keeps only the last 500 lines in one `TextView` and auto-scrolls unless the user has scrolled up. The activity unregisters its receiver and observers in `onDestroy`.
+- **Alternatives considered:** keeping the dropdown (no one to pick a device in the car, and the service probes all devices anyway); following the system day/night theme (head units often don't switch, and a light screen glares at night).
+- **Consequences:** sized for ~480dp of usable height (1920x768 at 240dpi). The on-screen log is bounded, unlike the log files (D-010). Not yet checked on the head unit.
+
 ## 4. Prototype review
 
 Not applicable: the app was built and tried in the car before it used this template.
@@ -171,7 +180,7 @@ Not applicable: the app was built and tried in the car before it used this templ
 
 | Idea | Why it was discarded | Date |
 | ---- | -------------------- | ---- |
-| Choosing the USB device by hand in a dropdown | Replaced by probing every device with `ATZ` (D-006); unreliable names, and no one to pick it in the car | 2026-05-30 |
+| Choosing the USB device by hand in a dropdown | Replaced by probing every device with `ATZ` (D-006); unreliable names, and no one to pick it in the car. Removed from the UI in D-012 | 2026-05-30 |
 | Mutex around service start | Replaced by the run-job check in `onStartCommand` (D-004) | 2026-09-21 |
 
 ## 6. Future work
@@ -179,7 +188,7 @@ Not applicable: the app was built and tried in the car before it used this templ
 From the README TODO list:
 
 - [ ] Configurable TCP address and port.
-- [ ] Refresh the UI: the device selector is no longer useful since D-006.
+- [x] Refresh the UI: the device selector is no longer useful since D-006. Done in D-012.
 - [ ] Refactor and clean up.
 - [ ] Set up donations.
 

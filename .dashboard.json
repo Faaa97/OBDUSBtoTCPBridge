@@ -1,5 +1,5 @@
 {
-  "status": "paused",
-  "next": "Turn the repo on in the build server and add the release keystore (docs/SIGNING.md), then: configurable TCP address/port and a UI refresh (see DESIGN.md Future work)",
+  "status": "active",
+  "next": "Try the new landscape UI (PR #2) on the head unit; turn the repo on in the build server and add the release keystore (docs/SIGNING.md); then configurable TCP address/port",
   "tags": ["android", "kotlin", "car", "obd2"]
 }
