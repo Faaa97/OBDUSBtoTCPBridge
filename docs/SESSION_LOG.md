@@ -5,7 +5,8 @@ What each session did and left for the next. Newest entries first; keep each ent
 ### 2026-11-21
 
 - **Done:** Adopted the project template. `CLAUDE.md` now just imports `AGENTS.md`, which keeps its requirements under **Hard requirements**. `DESIGN.md` backfilled from the code and `git log` as Accepted (D-001 to D-009). `build.yml` and `cliff.toml` for the build server replace `.github/workflows/release-apk.yml`, keeping its optional APK signing. Added `docs/PR.md`, `.dashboard.json`, and rewrote `README.md`.
-- **Next:** Turn the repo on in the build server and check the first CI run; set the repo to squash merge only; answer the open questions in `DESIGN.md`.
+- **Next:** Turn the repo on in the build server and check the first CI run; set the repo to squash merge only; add the release keystore to the build server (`docs/SIGNING.md`).
+- **Decided:** logs are deleted only from the UI (D-010); releases stay debug-signed until the keystore is on the build server (D-011).
 - **Notes:** No Android SDK in the session, so Gradle wasn't run; `build.yml` is untested until the server runs it.
 
 ### Before 2026-11-21

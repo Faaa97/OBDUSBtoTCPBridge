@@ -130,7 +130,7 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Context:** Problems happen in the car, away from a debugger.
 - **Decision:** `ObdLogBus` writes each message to Logcat, a `SharedFlow` for the UI, and `filesDir/obd_logs_YYYYMMDD.txt`. Logging can be switched off; the UI shares the files through a `FileProvider` or clears them.
 - **Alternatives considered:** none recorded.
-- **Consequences:** files are not pruned automatically, and every TCP↔USB message is logged while logging is on (see Open questions).
+- **Consequences:** files are kept until the user deletes them (D-010), and every TCP↔USB message is logged while logging is on (see Open questions).
 
 ### D-009: Builds and releases on the build server
 
@@ -140,6 +140,24 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Decision:** `build.yml` replaces `.github/workflows/release-apk.yml`: image `build-server/android:latest`, Gradle cache, CI runs `testDebugUnitTest lintDebug`, builds copy the APK to `dist/`. Tag builds sign a release APK when the `SIGNING_*` secrets exist on the build machine, and fall back to a debug-signed APK otherwise, as the old workflow did. Release notes come from git-cliff (`cliff.toml`).
 - **Alternatives considered:** keeping the GitHub Actions workflow (no minutes left).
 - **Consequences:** the repo must be turned on in the build server's page. `build.yml` hasn't run yet; the first CI run will show whether `lintDebug` passes on the existing code.
+
+### D-010: Log files are deleted only from the UI
+
+- **Date:** 2026-11-21
+- **Status:** Accepted
+- **Context:** Open question on whether old log files should be pruned automatically to save storage.
+- **Decision:** never delete log files automatically. They are removed only when the user taps the clear-logs button in the UI.
+- **Alternatives considered:** pruning files older than N days, or capping total size (rejected by the user).
+- **Consequences:** no pruning code is to be added; storage use grows while logging is on until the user clears it.
+
+### D-011: Debug-signed releases until a release keystore is on the build server
+
+- **Date:** 2026-11-21
+- **Status:** Accepted
+- **Context:** There is no release keystore yet; the user will create one and add it to the build server.
+- **Decision:** tag builds keep publishing debug-signed APKs (the fallback in `build.yml`) until the `SIGNING_*` secrets exist in the build server's `secrets/<repo>.env`. From then on they publish a signed release APK with no change to `build.yml`. How to create and add the keystore: `docs/SIGNING.md`.
+- **Alternatives considered:** none.
+- **Consequences:** the first signed release has a different signature from the debug builds, so the head unit needs one uninstall and reinstall, which wipes the app's saved settings (autostart, logging toggle, saved device). The keystore and its passwords must be backed up: losing them means every later update needs that uninstall again.
 
 ## 4. Prototype review
 
@@ -167,5 +185,4 @@ From the README TODO list:
 
 ## 7. Open questions
 
-- Should old log files be pruned, and should per-message TCP↔USB logging be off by default, to save storage and power on the head unit? (raised 2026-11-21)
-- Is there a release keystore to put in the build server's secrets, or are debug-signed APKs fine for releases? (raised 2026-11-21)
+- Should per-message TCP↔USB logging be off by default (or a separate toggle), to save storage and power on the head unit? Pruning was answered in D-010. (raised 2026-11-21)

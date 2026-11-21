@@ -31,6 +31,7 @@ Topic docs for areas that need more than a line here. Add a row when you create 
 | Area | Read |
 | ---- | ---- |
 | Opening a PR, commit message format | `docs/PR.md` |
+| Release signing, keystore, `SIGNING_*` secrets | `docs/SIGNING.md` |
 
 ## Starting a session
 
@@ -85,6 +86,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template: `AGENTS.md`, backfilled `DESIGN.md`, and `build.yml` for the build server in place of the GitHub Actions workflow. `build.yml` hasn't run yet.
+Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template: `AGENTS.md`, backfilled `DESIGN.md`, and `build.yml` for the build server in place of the GitHub Actions workflow. `build.yml` hasn't run yet. Releases stay debug-signed until the user adds a release keystore to the build server (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010).
 
-Next: the user turns the repo on in the build server and checks the first CI run (lint may flag existing code). Then Future work in `DESIGN.md`: configurable address/port, UI refresh.
+Next: the user turns the repo on in the build server, checks the first CI run (lint may flag existing code) and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port, UI refresh.
