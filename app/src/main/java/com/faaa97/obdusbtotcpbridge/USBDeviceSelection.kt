@@ -137,10 +137,19 @@ object USBDeviceSelection {
         if (!isInitialized()) return null
         populateDeviceOptions()
         val options = deviceOptions
-        if (options.isEmpty()) return null
-        val preferred = listOfNotNull(selectedDeviceOption.value, PersistedState.savedUsbId)
-        return preferred.firstNotNullOfOrNull { id -> options.find { it.id == id } }
-            ?: options.first()
+        val id = pickPreferredId(
+            options.map { it.id }, selectedDeviceOption.value, PersistedState.savedUsbId
+        ) ?: return null
+        return options.find { it.id == id }
+    }
+
+    /**
+     * Which of the connected device [ids] to show: the one in use, else the saved one,
+     * else the first. Null when nothing is connected.
+     */
+    internal fun pickPreferredId(ids: List<String>, selectedId: String?, savedId: String?): String? {
+        if (ids.isEmpty()) return null
+        return listOfNotNull(selectedId, savedId).firstOrNull { it in ids } ?: ids.first()
     }
 
     fun openSelectedDevice() : UsbSerialPort? {
