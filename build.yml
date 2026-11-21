@@ -1,0 +1,60 @@
+# CI, builds and releases on the user's build server (Faaa97/build-server,
+# https://builds.faaa97-dashboard.duckdns.org). See "Builds, CI and releases" in AGENTS.md.
+#
+# - ci: runs by itself on every push to a PR or the default branch, and shows on GitHub as the
+#   build-server/ci commit status. No secrets, no files kept.
+# - steps: builds ordered from the server's page (BUILD_KIND manual or pr; a PR build gets a
+#   comment with download links), and tag builds (BUILD_KIND tag) when a v* tag is pushed,
+#   after which the server creates the GitHub release with git-cliff notes (cliff.toml) and
+#   the artifacts attached.
+#
+# Each step runs with `sh -e` in a fresh container, in the checkout. The server sets BUILD_ID,
+# BUILD_KIND (ci, manual, pr or tag), BUILD_REF, BUILD_COMMIT, BUILD_PR, BUILD_TAG and
+# BUILD_VERSION (the tag without the v). Images are linux/amd64.
+#
+# app/build.gradle.kts names the APK after `git rev-parse`, so every Gradle step first marks the
+# checkout as a safe git directory (the container user may not own it).
+#
+# Optional release signing (secrets/<repo>.env on the build machine). Without them, tag builds
+# publish a debug-signed APK, like the old GitHub Actions workflow did:
+#   SIGNING_KEYSTORE_BASE64  keystore file encoded with `base64 -w0`
+#   SIGNING_KEYSTORE_PASSWORD, SIGNING_KEY_ALIAS, SIGNING_KEY_PASSWORD
+
+image: build-server/android:latest
+timeout: 30m
+cache:
+  - /root/.gradle
+secrets:
+  - SIGNING_KEYSTORE_BASE64
+  - SIGNING_KEYSTORE_PASSWORD
+  - SIGNING_KEY_ALIAS
+  - SIGNING_KEY_PASSWORD
+
+ci:
+  - git config --global --add safe.directory "$PWD" && chmod +x gradlew && ./gradlew --no-daemon testDebugUnitTest lintDebug
+
+steps:
+  - |
+    git config --global --add safe.directory "$PWD"
+    chmod +x gradlew
+    mkdir -p dist
+    NAME="OBDUSBtoTCPbridge-${BUILD_TAG:-$(git rev-parse --short=8 HEAD)}"
+    if [ "$BUILD_KIND" = tag ] && [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
+      ./gradlew --no-daemon testDebugUnitTest assembleRelease
+      BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
+      UNSIGNED=$(find app/build/outputs/apk/release -name '*.apk' | head -n1)
+      echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > /tmp/release.jks
+      "$BUILD_TOOLS/zipalign" -f -p 4 "$UNSIGNED" /tmp/aligned.apk
+      "$BUILD_TOOLS/apksigner" sign --ks /tmp/release.jks \
+        --ks-pass env:SIGNING_KEYSTORE_PASSWORD --ks-key-alias "$SIGNING_KEY_ALIAS" \
+        --key-pass env:SIGNING_KEY_PASSWORD --out "dist/$NAME.apk" /tmp/aligned.apk
+      "$BUILD_TOOLS/apksigner" verify "dist/$NAME.apk"
+      rm -f /tmp/release.jks
+    else
+      ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      cp "$(find app/build/outputs/apk/debug -name '*.apk' | head -n1)" "dist/$NAME-debug.apk"
+    fi
+    ls -la dist
+
+artifacts:
+  - dist/*

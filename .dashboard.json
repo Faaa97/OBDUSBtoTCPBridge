@@ -1,0 +1,5 @@
+{
+  "status": "paused",
+  "next": "Turn the repo on in the build server and add the release keystore (docs/SIGNING.md), then: configurable TCP address/port and a UI refresh (see DESIGN.md Future work)",
+  "tags": ["android", "kotlin", "car", "obd2"]
+}
