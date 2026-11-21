@@ -46,6 +46,7 @@ object USBDeviceSelection {
                 UsbDeviceItem.Create(driver.device)
             }
         } catch (e: Exception) {
+            deviceOptions = listOf()
             log("Error populating device options: ${e.message}")
         }
     }
@@ -127,26 +128,19 @@ object USBDeviceSelection {
         }
     }
 
-    fun trySelectDevice(userSelection: Int = -1, deviceSelected: (UsbDeviceItem) -> Unit = {}) {
-        if (!isInitialized()) return
+    /**
+     * Returns the compatible (USB serial) device to show in the UI, without selecting it.
+     * Prefers the currently verified device, then the last saved one, then the first found.
+     * Never throws; returns null when nothing compatible is connected.
+     */
+    fun findCompatibleDevice(): UsbDeviceItem? {
+        if (!isInitialized()) return null
         populateDeviceOptions()
-
-        val id = if (userSelection != -1 && userSelection < deviceOptions.size) {
-            deviceOptions[userSelection].id
-        } else {
-            PersistedState.savedUsbId
-        }
-
-        if (id == null) return
-
-        val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager)
-        val driver = drivers.find { it.device.deviceName == id } ?: return
-
-        val device = UsbDeviceItem.Create(driver.device)
-        selectedDeviceOption.value = device.id
-        selectedDeviceDriver = driver
-        PersistedState.setSavedUsbId(device.id)
-        deviceSelected(device)
+        val options = deviceOptions
+        if (options.isEmpty()) return null
+        val preferred = listOfNotNull(selectedDeviceOption.value, PersistedState.savedUsbId)
+        return preferred.firstNotNullOfOrNull { id -> options.find { it.id == id } }
+            ?: options.first()
     }
 
     fun openSelectedDevice() : UsbSerialPort? {

@@ -29,7 +29,7 @@ class ObdService : Service() {
 
     companion object {
         const val CHANNEL_ID = "obd_channel"
-        private const val TCP_PORT = 35000
+        const val TCP_PORT = 35000
         private const val MIN_BACKOFF_MS = 1_000L
         private const val MAX_BACKOFF_MS = 30_000L
         private const val STABLE_SESSION_MS = 60_000L

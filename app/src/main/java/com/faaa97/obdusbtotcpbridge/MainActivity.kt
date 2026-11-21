@@ -1,22 +1,45 @@
 package com.faaa97.obdusbtotcpbridge
 
-import android.app.Activity
 import android.content.*
 import android.hardware.usb.UsbManager
 import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.switchmaterial.SwitchMaterial
 import kotlinx.coroutines.launch
-import kotlin.io.path.exists
 
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var logView: LinearLayout
-    private var button: Button? = null
+    companion object {
+        /** Lines kept on screen. Bounded so an always-on head unit doesn't grow memory forever. */
+        private const val MAX_LOG_LINES = 500
+        private const val USB_REFRESH_DELAY_MS = 1_000L
+    }
+
+    private lateinit var logText: TextView
+    private lateinit var logScroll: ScrollView
+    private val logLines = ArrayDeque<String>()
+
+    private lateinit var startButton: MaterialButton
+    private lateinit var deviceName: TextView
+    private lateinit var deviceInfo: TextView
+    private lateinit var deviceDot: View
+    private lateinit var serviceStatus: TextView
+    private lateinit var serviceDot: View
+
+    private var deviceFound = false
+
+    // Observables may notify from any thread; always hop to the UI thread.
+    private val serviceObserver: (Boolean) -> Unit = { runOnUiThread { refreshUi() } }
+    private val deviceObserver: (String?) -> Unit = { runOnUiThread { refreshUi() } }
+
+    private val delayedRefresh = Runnable { refreshUi() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,19 +47,37 @@ class MainActivity : AppCompatActivity() {
 
         ObdLogBus.log("----- MainActivity -----")
 
-        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED))
-        registerReceiver(usbReceiver, IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED))
-
+        bindViews()
         initializeLoggingView()
-        initializeDeviceDropdown()
         initializeLogButtons()
         initializeMainButton()
         initializeToggles()
+
+        val filter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        // System broadcasts are delivered even to non-exported receivers
+        ContextCompat.registerReceiver(this, usbReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
+        ObdService.isRunning.addObserver(serviceObserver)
+        USBDeviceSelection.selectedDeviceOption.addObserver(deviceObserver)
+
+        refreshUi()
         autoStart()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshUi()
     }
 
     override fun onDestroy() {
         ObdLogBus.log("----- (MainActivity) -----")
+        ObdService.isRunning.removeObserver(serviceObserver)
+        USBDeviceSelection.selectedDeviceOption.removeObserver(deviceObserver)
+        logScroll.removeCallbacks(delayedRefresh)
+        try { unregisterReceiver(usbReceiver) } catch (e: Exception) {}
         super.onDestroy()
     }
 
@@ -44,130 +85,172 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             if (UsbManager.ACTION_USB_DEVICE_ATTACHED == intent.action ||
                 UsbManager.ACTION_USB_DEVICE_DETACHED == intent.action) {
-                initializeDeviceDropdown()
+                refreshUi()
+                // The device list may lag slightly behind the broadcast; check again shortly.
+                logScroll.removeCallbacks(delayedRefresh)
+                logScroll.postDelayed(delayedRefresh, USB_REFRESH_DELAY_MS)
             }
         }
     }
+
+    private fun bindViews() {
+        logText = findViewById(R.id.logs_text)
+        logScroll = findViewById(R.id.logs_scrollview)
+        startButton = findViewById(R.id.start_button)
+        deviceName = findViewById(R.id.device_name)
+        deviceInfo = findViewById(R.id.device_info)
+        deviceDot = findViewById(R.id.device_status_dot)
+        serviceStatus = findViewById(R.id.service_status)
+        serviceDot = findViewById(R.id.service_status_dot)
+    }
+
+    // ---------------- LOG VIEW ----------------
 
     private fun initializeLoggingView() {
-        logView = this.findViewById(R.id.logs_container)
+        findViewById<Button>(R.id.clear_view_button).setOnClickListener {
+            logLines.clear()
+            logText.text = ""
+        }
+
         lifecycleScope.launch {
-            ObdLogBus.logs.collect { msg ->
-                logView.addView(TextView(logView.context).apply { text = msg })
-            }
+            ObdLogBus.logs.collect { msg -> appendLog(msg) }
         }
     }
 
-    private fun initializeMainButton(){
-        ObdService.isRunning.addObserver { _ ->
-            updateMainButton()
+    private fun appendLog(msg: String) {
+        try {
+            val stickToBottom = isScrolledToBottom()
+
+            logLines.addLast(msg)
+            if (logLines.size > MAX_LOG_LINES) {
+                while (logLines.size > MAX_LOG_LINES) logLines.removeFirst()
+                logText.text = logLines.joinToString("\n")
+            } else {
+                if (logText.length() > 0) logText.append("\n")
+                logText.append(msg)
+            }
+
+            if (stickToBottom) {
+                logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
+            }
+        } catch (e: Exception) {
+            // Never let the log view take the app down
+        }
+    }
+
+    /** True unless the user has scrolled up to read older lines. */
+    private fun isScrolledToBottom(): Boolean {
+        val child = logScroll.getChildAt(0) ?: return true
+        val bottomGap = child.bottom + logScroll.paddingBottom - (logScroll.height + logScroll.scrollY)
+        return bottomGap <= (48 * resources.displayMetrics.density)
+    }
+
+    // ---------------- STATUS ----------------
+
+    private fun refreshUi() {
+        if (isFinishing || isDestroyed) return
+        try {
+            updateDeviceStatus()
+            updateServiceStatus()
+        } catch (e: Exception) {
+            ObdLogBus.log("UI refresh error: ${e.message}")
+        }
+    }
+
+    private fun updateDeviceStatus() {
+        val device = USBDeviceSelection.findCompatibleDevice()
+        deviceFound = device != null
+
+        if (device == null) {
+            deviceName.setText(R.string.no_device_found)
+            deviceInfo.setText(R.string.no_device_hint)
+            setDotColor(deviceDot, R.color.status_idle)
+            return
         }
 
-        USBDeviceSelection.selectedDeviceOption.addObserver { _ ->
-            updateMainButton()
-        }
+        deviceName.text = device.label
+        val d = device.device
+        deviceInfo.text = String.format(
+            java.util.Locale.US, "VID %04X · PID %04X · %s", d.vendorId, d.productId, d.deviceName
+        )
+        val inUse = ObdService.isRunning.value &&
+                USBDeviceSelection.selectedDeviceOption.value == device.id
+        setDotColor(deviceDot, if (inUse) R.color.status_ok else R.color.status_warn)
+    }
 
-        button = this.findViewById<Button>(R.id.start_button)
-        button?.setOnClickListener {
-            manageService()
+    private fun updateServiceStatus() {
+        val running = ObdService.isRunning.value
+        if (running) {
+            serviceStatus.text = getString(R.string.service_running, ObdService.TCP_PORT)
+            setDotColor(serviceDot, R.color.status_ok)
+            startButton.setText(R.string.button_text_stop)
+            startButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.stop_button_tint)
+        } else {
+            serviceStatus.setText(R.string.service_stopped)
+            setDotColor(serviceDot, R.color.status_idle)
+            startButton.setText(R.string.button_text_start)
+            startButton.backgroundTintList = ContextCompat.getColorStateList(this, R.color.start_button_tint)
         }
+        // Stopping must always be possible; starting needs a compatible device.
+        startButton.isEnabled = running || deviceFound
+    }
 
-        updateMainButton()
+    private fun setDotColor(dot: View, colorRes: Int) {
+        dot.backgroundTintList = ContextCompat.getColorStateList(this, colorRes)
+    }
+
+    // ---------------- CONTROLS ----------------
+
+    private fun initializeMainButton() {
+        startButton.setOnClickListener { manageService() }
     }
 
     private fun manageService() {
         val intent = Intent(this@MainActivity, ObdService::class.java)
-        if(!ObdService.isRunning.value) {
-            startService(intent)
-        } else {
-            stopService(intent)
-        }
-    }
-
-    private fun updateMainButton() {
-        if(!ObdService.isRunning.value) {
-            button?.setText(R.string.button_text_start)
-        } else {
-            button?.setText(R.string.button_text_stop)
-        }
-
-        if(USBDeviceSelection.selectedDeviceOption.value == null){
-            button?.isEnabled = false
-        } else {
-            button?.isEnabled = true
-        }
-    }
-
-    private fun initializeDeviceDropdown() {
-        USBDeviceSelection.populateDeviceOptions()
-
-        var options: List<String>
-        if(USBDeviceSelection.deviceOptions.isNotEmpty()){
-            options = USBDeviceSelection.deviceOptions.map { option ->
-                option.label
+        try {
+            if (!ObdService.isRunning.value) {
+                startService(intent)
+            } else {
+                stopService(intent)
             }
-        } else {
-            options = mutableListOf("No devices available")
+        } catch (e: Exception) {
+            ObdLogBus.log("Failed to change service state: ${e.message}")
         }
-
-        val dropdown = this.findViewById<Spinner>(R.id.device_dropdown)
-        val deviceInfoTextView = this.findViewById<TextView>(R.id.device_info)
-        dropdown.onItemSelectedListener = object : Activity(), AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                USBDeviceSelection.trySelectDevice(position, deviceSelected = { device ->
-                    deviceInfoTextView.text = device.toString()
-                })
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-                // Optional: handle no selection
-                ObdLogBus.log("No selection")
-            }
-        }
-
-        val adapter: ArrayAdapter<String> =
-            ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item,
-                options)
-        dropdown.adapter = adapter
     }
 
     private fun initializeLogButtons() {
-        val shareLogsButton = this.findViewById<Button>(R.id.share_logs_button)
-        shareLogsButton.setOnClickListener {
-            shareLogFiles(this)
+        findViewById<Button>(R.id.share_logs_button).setOnClickListener {
+            try {
+                shareLogFiles(this)
+            } catch (e: Exception) {
+                ObdLogBus.log("Failed to share logs: ${e.message}")
+            }
         }
 
-        val clearLogsButton = this.findViewById<Button>(R.id.clear_logs_button)
-        clearLogsButton.setOnClickListener {
+        findViewById<Button>(R.id.clear_logs_button).setOnClickListener {
             clearAllLogs(this)
+            Toast.makeText(this, R.string.log_files_cleared, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun initializeToggles() {
-        val logsButton = this.findViewById<ToggleButton>(R.id.logs_button)
-        logsButton.setOnCheckedChangeListener { _, isOn ->
+        val logsSwitch = findViewById<SwitchMaterial>(R.id.logs_button)
+        logsSwitch.isChecked = PersistedState.isLoggingEnabled
+        ObdLogBus.enabled = PersistedState.isLoggingEnabled
+        logsSwitch.setOnCheckedChangeListener { _, isOn ->
             ObdLogBus.enabled = isOn
             PersistedState.setLoggingEnabled(isOn)
         }
 
-        logsButton.isChecked = PersistedState.isLoggingEnabled
-        ObdLogBus.enabled = PersistedState.isLoggingEnabled
-
-        val autoStartButton = this.findViewById<ToggleButton>(R.id.auto_start_button)
-        autoStartButton.setOnCheckedChangeListener { _, isOn ->
+        val autoStartSwitch = findViewById<SwitchMaterial>(R.id.auto_start_button)
+        autoStartSwitch.isChecked = PersistedState.isAutoStartEnabled
+        autoStartSwitch.setOnCheckedChangeListener { _, isOn ->
             PersistedState.setAutoStartEnabled(isOn)
         }
-
-        autoStartButton.isChecked = PersistedState.isAutoStartEnabled
     }
 
     private fun autoStart() {
-        if(PersistedState.isAutoStartEnabled && !ObdService.isRunning.value){
+        if (PersistedState.isAutoStartEnabled && !ObdService.isRunning.value) {
             manageService()
         }
     }
@@ -211,8 +294,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun clearAllLogs(context: Context) {
-        val logFiles = ObdLogBus.getAllLogFiles(context)
-        logFiles.forEach { it.delete() }
+        try {
+            ObdLogBus.getAllLogFiles(context).forEach { it.delete() }
+        } catch (e: Exception) {
+            ObdLogBus.log("Failed to clear log files: ${e.message}")
+        }
     }
 
 }
