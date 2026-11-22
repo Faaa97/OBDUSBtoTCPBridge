@@ -2,7 +2,8 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.app.Application
 
-class App : Application() {
+/** Open so the mock build's Application can extend it (app/src/mock/). */
+open class App : Application() {
 
     override fun onCreate() {
         super.onCreate()

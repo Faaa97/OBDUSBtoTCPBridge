@@ -2,6 +2,18 @@
 
 What each session did and left for the next. Newest entries first; keep each entry short. Nothing loads this file automatically: read it only when you need history beyond `AGENTS.md`'s **Current state**, `git log` and the PRs. Lasting facts (gotchas, commands) belong in `AGENTS.md` or a topic doc, not only here.
 
+### 2026-11-22 (emulator, mock build)
+
+- **Done:** Ran PR #2 on the `Medium_Phone_API_36.1` emulator in landscape. Fixed the Share/Clear log buttons (baseline alignment shifted the two-line one down) and gave the controls column an always-visible scrollbar plus fading edges. Added `tools:` preview data to `activity_main.xml`. Added the `mock` build type (D-014, `docs/BUILDS.md`) behind a new `AdapterSource` seam; checked on the emulator: traffic through the real bridge, unplug/plug, auto-reconnect backoff, and that the real debug build is unchanged. Debug and release APKs checked to contain no mock classes.
+- **Next:** Try PR #2 on the head unit.
+- **Notes:** AGP 9 creates unit tests only for `debug`; `build.gradle.kts` turns them on for `mock` via `androidComponents.beforeVariants`. In landscape on a phone emulator, `wm user-rotation lock 1` rotates it (the `settings put system user_rotation` route didn't).
+
+### 2026-11-22 (UI refresh)
+
+- **Done:** Redesigned `MainActivity` as a landscape, always-dark dashboard for the 9" head unit (D-013): status card, big Start/Stop, switch tiles, log buttons, full-height log. Removed the device dropdown; the detected device is shown via `USBDeviceSelection.findCompatibleDevice()` (preference logic tested in `DevicePreferenceTest`). On-screen log bounded to 500 lines; receiver/observer leaks fixed. Merged `master` into PR #2 (template, then the go-public/GitHub Actions changes; renumbered the UI decision from D-012 to D-013 since master took D-012).
+- **Next:** Try PR #2 on the head unit and adjust sizes if needed.
+- **Notes:** Installed the Android SDK in the session; `testDebugUnitTest lintDebug` and `assembleDebug` pass. Pre-existing lint warning: `shareLogFiles` uses `resolveActivity` without a `<queries>` entry, which returns null on Android 11+ (fine on the Android 10 unit).
+
 ### 2026-11-22
 
 - **Done:** With the repo going public (PR #1), moved CI and releases back to GitHub Actions (D-012): deleted `build.yml`, added `.github/workflows/ci.yml` (tests and lint on pushes to `master` and PRs; APKs are built only for `v*` tags), and reworked `release-apk.yml` to run on `v*` tags with git-cliff notes. Merged `master` into PR #1 to clear its conflicts.

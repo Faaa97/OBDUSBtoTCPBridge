@@ -28,10 +28,26 @@ android {
                 "proguard-rules.pro"
             )
         }
+        // A debug build with a simulated ELM327 instead of USB, to try the app on an emulator or a
+        // PC without a head unit. Its code is only in app/src/mock/. Not built by any workflow (D-014).
+        create("mock") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".mock" // Installs next to the real app
+            versionNameSuffix = "-mock"
+            matchingFallbacks += listOf("debug")
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+androidComponents {
+    // AGP only creates unit tests for debug by default; the mock code's tests (app/src/testMock)
+    // run with `testMockUnitTest`.
+    beforeVariants(selector().withBuildType("mock")) { variant ->
+        variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
     }
 }
 

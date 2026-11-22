@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- mock build type only: run the app with a simulated adapter instead of USB (docs/BUILDS.md). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name=".mock.MockApp"
+        tools:replace="android:name" />
+</manifest>

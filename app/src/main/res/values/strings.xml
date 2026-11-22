@@ -2,11 +2,20 @@
     <string name="app_name">OBD USB to TCP bridge</string>
     <string name="button_text_start">Start Service</string>
     <string name="button_text_stop">Stop Service</string>
-    <string name="logs_label">Enable Logs</string>
-    <string name="auto_start_label">Auto start service</string>
+    <string name="logs_label">Logging</string>
+    <string name="auto_start_label">Auto start</string>
     <string name="enable_logs_persisted_value" translatable="false">enable_logs_persisted_value</string>
     <string name="autostart_persisted_value" translatable="false">autostart_persisted_value</string>
-    <string name="on">ON</string>
-    <string name="off">OFF</string>
     <string name="saved_id_persisted_value" translatable="false">saved_serial_persisted_value</string>
+    <string name="usb_device_label">USB device</string>
+    <string name="service_label">Service</string>
+    <string name="log_title">Log</string>
+    <string name="clear_view">Clear view</string>
+    <string name="share_logs">Share logs</string>
+    <string name="clear_log_files">Clear log files</string>
+    <string name="no_device_found">No compatible device</string>
+    <string name="no_device_hint">Connect the USB OBD2 adapter</string>
+    <string name="service_running">Running · TCP port %1$d</string>
+    <string name="service_stopped">Stopped</string>
+    <string name="log_files_cleared">Log files deleted</string>
 </resources>
