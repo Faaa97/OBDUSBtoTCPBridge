@@ -16,4 +16,7 @@
     <color name="status_error">#FFC8453C</color>
     <color name="status_idle">#FF5C6573</color>
     <color name="button_disabled">#FF2C333D</color>
+
+    <color name="update_banner_background">#FF1C2C44</color>
+    <color name="update_accent">#FF3D8BFD</color>
 </resources>

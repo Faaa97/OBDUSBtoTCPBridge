@@ -2,16 +2,21 @@ package com.faaa97.obdusbtotcpbridge
 
 import android.content.*
 import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.File
 
 
 class MainActivity : AppCompatActivity() {
@@ -35,10 +40,18 @@ class MainActivity : AppCompatActivity() {
 
     private var deviceFound = false
 
+    private lateinit var updateBanner: View
+    private lateinit var updateMessage: TextView
+    private lateinit var updateDetail: TextView
+    private lateinit var updateButton: MaterialButton
+    private var updateJob: Job? = null
+    private val installedVersion: String by lazy { readInstalledVersion() }
+
     // Observables may notify from any thread; always hop to the UI thread.
     private val serviceObserver: (Boolean) -> Unit = { runOnUiThread { refreshUi() } }
     private val deviceObserver: (String?) -> Unit = { runOnUiThread { refreshUi() } }
     private val adapterChangeObserver: (Int) -> Unit = { runOnUiThread { refreshUi() } }
+    private val updateObserver: (Release?) -> Unit = { runOnUiThread { refreshUpdateBanner() } }
 
     private val adapterSource: AdapterSource get() = Adapters.source
 
@@ -55,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         initializeLogButtons()
         initializeMainButton()
         initializeToggles()
+        initializeUpdateBanner()
 
         val filter = IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -66,6 +80,7 @@ class MainActivity : AppCompatActivity() {
         ObdService.isRunning.addObserver(serviceObserver)
         adapterSource.selectedId.addObserver(deviceObserver)
         adapterSource.changes.addObserver(adapterChangeObserver)
+        Updates.available.addObserver(updateObserver)
 
         refreshUi()
         autoStart()
@@ -74,6 +89,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshUi()
+        // Throttled inside Updates, so returning to the app doesn't call GitHub every time
+        lifecycleScope.launch { Updates.checkIfDue(installedVersion) }
     }
 
     override fun onDestroy() {
@@ -81,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         ObdService.isRunning.removeObserver(serviceObserver)
         adapterSource.selectedId.removeObserver(deviceObserver)
         adapterSource.changes.removeObserver(adapterChangeObserver)
+        Updates.available.removeObserver(updateObserver)
         logScroll.removeCallbacks(delayedRefresh)
         try { unregisterReceiver(usbReceiver) } catch (e: Exception) {}
         super.onDestroy()
@@ -107,6 +125,108 @@ class MainActivity : AppCompatActivity() {
         deviceDot = findViewById(R.id.device_status_dot)
         serviceStatus = findViewById(R.id.service_status)
         serviceDot = findViewById(R.id.service_status_dot)
+        updateBanner = findViewById(R.id.update_banner)
+        updateMessage = findViewById(R.id.update_message)
+        updateDetail = findViewById(R.id.update_detail)
+        updateButton = findViewById(R.id.update_button)
+    }
+
+    // ---------------- UPDATES (D-015) ----------------
+
+    private fun initializeUpdateBanner() {
+        updateButton.setOnClickListener { startUpdate() }
+        refreshUpdateBanner()
+    }
+
+    private fun refreshUpdateBanner() {
+        if (isFinishing || isDestroyed) return
+        val release = Updates.available.value
+        if (release == null) {
+            updateBanner.visibility = View.GONE
+            return
+        }
+        updateMessage.text = getString(R.string.update_available, release.tag)
+        updateDetail.text = getString(R.string.update_installed_version, installedVersion)
+        if (updateJob?.isActive != true) {
+            updateButton.isEnabled = true
+            updateButton.setText(R.string.update_button)
+        }
+        updateBanner.visibility = View.VISIBLE
+    }
+
+    private fun startUpdate() {
+        val release = Updates.available.value ?: return
+        if (updateJob?.isActive == true) return
+        // Without permission to install, send the user to the setting first; they tap Update again.
+        if (!canInstallPackages()) {
+            requestInstallPermission()
+            return
+        }
+
+        updateButton.isEnabled = false
+        updateButton.text = getString(R.string.update_downloading, 0)
+        updateJob = lifecycleScope.launch {
+            try {
+                ObdLogBus.log("Downloading update ${release.tag}...")
+                val apk = Updates.download(File(cacheDir, "updates"), release) { percent ->
+                    runOnUiThread {
+                        if (!isDestroyed) updateButton.text = getString(R.string.update_downloading, percent)
+                    }
+                }
+                ObdLogBus.log("Update downloaded, opening the installer")
+                installApk(apk)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ObdLogBus.log("Update download failed: ${e.message}")
+                Toast.makeText(this@MainActivity, getString(R.string.update_failed, e.message), Toast.LENGTH_LONG).show()
+            } finally {
+                if (!isDestroyed) {
+                    updateButton.isEnabled = true
+                    updateButton.setText(R.string.update_button)
+                }
+            }
+        }
+    }
+
+    private fun canInstallPackages(): Boolean = packageManager.canRequestPackageInstalls()
+
+    private fun requestInstallPermission() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, "package:$packageName".toUri())
+            )
+            Toast.makeText(this, R.string.update_allow_installs, Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            ObdLogBus.log("Can't open the install permission setting: ${e.message}")
+            Toast.makeText(this, getString(R.string.update_failed, e.message), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun installApk(apk: File) {
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.provider", apk)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            ObdLogBus.log("Can't open the package installer: ${e.message}")
+            Toast.makeText(this, getString(R.string.update_failed, e.message), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun readInstalledVersion(): String = try {
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0)
+        }
+        info.versionName ?: ""
+    } catch (e: Exception) {
+        ""
     }
 
     // ---------------- LOG VIEW ----------------

@@ -2,6 +2,12 @@
 
 What each session did and left for the next. Newest entries first; keep each entry short. Nothing loads this file automatically: read it only when you need history beyond `AGENTS.md`'s **Current state**, `git log` and the PRs. Lasting facts (gotchas, commands) belong in `AGENTS.md` or a topic doc, not only here.
 
+### 2026-11-22 (in-app updates)
+
+- **Done:** Released v0.2.0 (bump on `master`, tag pushed; the APK is signed). Added in-app updates (D-015): `Updates` checks GitHub's latest release, a banner above the log offers Update, which downloads the APK and opens the package installer. `UpdatesTest` covers version comparison and release parsing. `testDebugUnitTest lintDebug` and `testMockUnitTest` pass.
+- **Next:** Try the banner on the head unit once a release newer than the installed one exists (install 0.2.0, then release 0.2.1 or later). No emulator was available to check it on screen.
+- **Notes:** To see the banner without a new release, temporarily lower `versionName` in `app/build.gradle.kts` and install the debug or mock build.
+
 ### 2026-11-22 (emulator, mock build)
 
 - **Done:** Ran PR #2 on the `Medium_Phone_API_36.1` emulator in landscape. Fixed the Share/Clear log buttons (baseline alignment shifted the two-line one down) and gave the controls column an always-visible scrollbar plus fading edges. Added `tools:` preview data to `activity_main.xml`. Added the `mock` build type (D-014, `docs/BUILDS.md`) behind a new `AdapterSource` seam; checked on the emulator: traffic through the real bridge, unplug/plug, auto-reconnect backoff, and that the real debug build is unchanged. Debug and release APKs checked to contain no mock classes.

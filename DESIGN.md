@@ -49,7 +49,7 @@ The MVP is built and in daily use (version 0.1.0).
 
 ### External services
 
-None. The app talks only to the USB device and to local TCP clients.
+The bridge itself talks only to the USB device and to local TCP clients. Since D-015 the UI also asks the GitHub API for the latest release (unauthenticated, no data sent beyond the request itself) and downloads its APK from GitHub when the user taps Update.
 
 ### Done when
 
@@ -185,6 +185,15 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Decision:** a third build type, `mock` (`initWith(debug)`, application id suffix `.mock`, label "OBD bridge (mock)"). Its code lives only in `app/src/mock/`: a manifest overlay swaps the Application for `MockApp`, which sets `Adapters.source` to a simulated ELM327 (`MockAdapterSource`, `MockElm327`), starts a `DemoClient` that polls the bridge over TCP like an OBD2 app, and takes adb broadcasts to unplug/plug the adapter and turn the demo client off. The main code reaches the adapter through a small `AdapterSource` interface (`UsbAdapterSource` wraps the existing `USBDeviceSelection`), so the service, TCP bridge and UI run unchanged in the mock build. Tests for the simulator are in `app/src/testMock` (`testMockUnitTest`). No workflow builds, tests or lints the mock build. How to use it: `docs/BUILDS.md`.
 - **Alternatives considered:** product flavors (`real`/`mock`) would rename every task (`testRealDebugUnitTest`…) and need workflow changes; a demo switch inside the debug build would put mock code in the APK we test and ship from; layout-preview data only (`tools:` attributes, kept as well) doesn't run on a device.
 - **Consequences:** Debug and release APKs contain no mock classes (checked in their dex files). `App` is `open` so `MockApp` can extend it. Adapters that send no USB broadcast notify through `AdapterSource.changes`; for USB it never fires, the system broadcasts still drive the service and the UI.
+
+### D-015: In-app updates from GitHub releases, shown as a banner above the log
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Context:** The app isn't on a store. Updating meant downloading the APK from GitHub on another device and copying it to the head unit.
+- **Decision:** `Updates` asks `https://api.github.com/repos/Faaa97/OBDUSBtoTCPBridge/releases/latest` (which never returns drafts or pre-releases) from `MainActivity.onResume`, at most every 6 hours after a successful check and every 10 minutes after a failed one, on the UI's coroutine scope only (the service never checks). If the tag's version (`vX.Y.Z`, suffixes ignored) is higher than the installed `versionName`, a banner above the log card shows "Update available: vX.Y.Z" with an Update button; otherwise it stays hidden. Update downloads the release's APK (a signed one before a `-debug.apk`) to `cacheDir/updates/` with progress on the button, checks its size, and opens the system package installer through the `FileProvider`. Without "install unknown apps" permission it opens that setting first, and the user taps Update again. Needs `REQUEST_INSTALL_PACKAGES`.
+- **Alternatives considered:** only opening the release page in a browser (the head unit may have no usable browser, and it still needs a manual install); checking from the service or with WorkManager in the background (more resource use and a new dependency for something only useful while someone looks at the screen); Play in-app updates (not on Play).
+- **Consequences:** installing replaces the running app, so the service stops; it comes back when the app is opened again (the installer's Open button runs `MainActivity`, which auto-starts if Auto start is on) or the car starts it. An APK signed with a different key than the installed one fails to install (e.g. a debug-signed 0.1.x over the signed 0.2.0), so D-011's one-time uninstall still applies. Debug and mock builds also show the banner when a newer release exists; updating a mock build installs the real app next to it. Tests: `UpdatesTest` (version comparison, release JSON parsing; `org.json` is a test dependency because Android's is a stub on the JVM).
 
 ## 4. Prototype review
 

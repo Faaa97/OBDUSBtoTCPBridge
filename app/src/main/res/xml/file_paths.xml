@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <files-path name="my_logs" path="." />
+    <!-- Downloaded update APKs, handed to the package installer (D-015) -->
+    <cache-path name="updates" path="updates/" />
 </paths>
