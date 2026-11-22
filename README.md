@@ -1,8 +1,4 @@
-# OBD USB to TCP bridge
-
-A small Android app that lets apps which only support Wi-Fi (TCP) OBD2 adapters use a **USB** OBD2 adapter instead.
-
-It's made for Android head units in cars: the bridge runs as a background service, opens the USB ELM327-style adapter and exposes it on TCP port 35000 (the usual ELM327 Wi-Fi port), so a Wi-Fi OBD2 app (Torque, Car Scanner, …) can connect to it as if it were a Wi-Fi dongle.
+Small Android app that lets a **USB OBD2 adapter (ELM327)** work with apps that only support WiFi or Bluetooth OBD2 adapters. It is meant to run in the background on an Android car head unit.
 
 ## Install
 
@@ -10,13 +6,24 @@ Download the latest APK from [Releases](https://github.com/Faaa97/OBDUSBtoTCPBri
 
 1. Plug in the USB OBD2 adapter and open the app.
 2. Pick the adapter and start the service (turn on **Auto start service** to start it with the car).
-3. In your OBD2 app, choose a Wi-Fi / TCP adapter and point it at `127.0.0.1`, port `35000`.
+3. In your OBD2 app, choose a WiFi / TCP adapter and point it at `127.0.0.1`, port `35000`.
 
-## Roadmap
+## How it works
 
-- Allow setting the address and port
-- Refresh the UI (the device selector is no longer useful)
-- Refactor and clean up
+- Finds the ELM327 among the connected USB serial devices (it sends `ATZ` to each and waits for an `ELM` reply) and remembers it.
+- Serves it on TCP port **35000**. In your OBD2 app, choose a WiFi adapter at `127.0.0.1`, port `35000`.
+- Runs as a foreground service that reconnects by itself when the adapter is unplugged or the app disconnects.
+- The **"Start ODBUSBToTCPBridge Service"** launcher starts the service with no UI, so the head unit can launch it on boot.
+- The main app shows logs, and can share or clear the log files.
+
+## Build
+
+```sh
+./gradlew assembleDebug        # APK in app/build/outputs/apk/debug/
+./gradlew testDebugUnitTest    # unit tests
+```
+
+GitHub Actions runs the tests, lint and a debug build on every push and pull request. Pushing a `v*` tag builds the APK and attaches it to a new GitHub release.
 
 ## Support the project
 
@@ -25,6 +32,11 @@ If the bridge is useful to you, you can buy me a coffee on [Ko-fi](https://ko-fi
 ## Contributing
 
 Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Docs
+
+- [`DESIGN.md`](DESIGN.md): design decisions, future work and open questions.
+- [`AGENTS.md`](AGENTS.md): how to work on the repo (for AI agents and humans).
 
 ## License
 

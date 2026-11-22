@@ -1,9 +1,12 @@
 name: Release APK
 
-# Builds the APK when a tag is pushed or a GitHub release is published,
-# and attaches it to the corresponding release (creating it if needed).
+# Pushing a v* tag builds the APK and creates the GitHub release with notes
+# from git-cliff (cliff.toml) and the APK attached. A tag with a suffix
+# (v1.2.3-rc.1) makes a pre-release. Re-running for an existing tag (manual
+# run) rebuilds the APK and replaces it on the release.
 #
-# Optional signing secrets (if absent, a debug-signed APK is published instead):
+# Optional signing secrets (if absent, a debug-signed APK is published instead).
+# See docs/SIGNING.md.
 #   SIGNING_KEYSTORE_BASE64  - keystore file encoded with `base64 -w0`
 #   SIGNING_KEYSTORE_PASSWORD
 #   SIGNING_KEY_ALIAS
@@ -12,29 +15,25 @@ name: Release APK
 on:
   push:
     tags:
-      - '*'
-  release:
-    types: [published]
-  # Manual run: builds the selected branch and creates the tag/release
-  # at that commit if it doesn't exist yet.
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build and attach the APK to (created if missing)'
+        description: 'Existing v* tag to rebuild and attach the APK to'
         required: true
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-apk-${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+  group: release-apk-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     env:
-      TAG: ${{ github.event.release.tag_name || inputs.tag || github.ref_name }}
+      TAG: ${{ inputs.tag || github.ref_name }}
       SIGNING_KEYSTORE_BASE64: ${{ secrets.SIGNING_KEYSTORE_BASE64 }}
       SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
       SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
@@ -43,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.TAG }}
+          ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
 
       - name: Set up JDK 21
@@ -55,21 +54,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
+      - name: Test and build APK
         run: |
           chmod +x gradlew
           if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
-            ./gradlew --no-daemon assembleRelease
+            ./gradlew --no-daemon testDebugUnitTest assembleRelease
           else
             echo "::warning::Signing secrets not configured; publishing debug-signed APK."
-            ./gradlew --no-daemon assembleDebug
+            ./gradlew --no-daemon testDebugUnitTest assembleDebug
           fi
 
       - name: Sign and collect APK
         run: |
           mkdir -p dist
-          OUT="dist/OBDUSBtoTCPbridge-${TAG}.apk"
           if [ -n "$SIGNING_KEYSTORE_BASE64" ]; then
+            OUT="dist/OBDUSBtoTCPbridge-${TAG}.apk"
             BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
             UNSIGNED=$(find app/build/outputs/apk/release -name '*.apk' | head -n1)
             echo "$SIGNING_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
@@ -83,14 +82,23 @@ jobs:
             "$BUILD_TOOLS/apksigner" verify "$OUT"
             rm -f "$RUNNER_TEMP/release.jks"
           else
-            cp "$(find app/build/outputs/apk/debug -name '*.apk' | head -n1)" "$OUT"
+            cp "$(find app/build/outputs/apk/debug -name '*.apk' | head -n1)" "dist/OBDUSBtoTCPbridge-${TAG}-debug.apk"
           fi
           ls -la dist
 
-      - name: Upload APK to release
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --current --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+
+      - name: Create release and upload APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          target_commitish: ${{ github.sha }}
+          body_path: RELEASE_NOTES.md
+          prerelease: ${{ contains(env.TAG, '-') }}
           files: dist/*.apk
           fail_on_unmatched_files: true

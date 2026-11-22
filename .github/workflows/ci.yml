@@ -1,7 +1,8 @@
 name: CI
 
 # Runs unit tests, lint and a debug build on every push to master and on
-# every pull request. Release APKs are built by release-apk.yml.
+# every pull request. Releases are built by release-apk.yml when a v* tag
+# is pushed.
 
 on:
   push:
