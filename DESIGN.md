@@ -39,7 +39,7 @@ The MVP is built and in daily use (version 0.1.0).
 - Bridge it to a TCP server on port 35000, one client at a time.
 - A foreground service that survives repeated starts and reconnects when the adapter or the client goes away.
 - A headless launcher activity the head unit can start on boot.
-- A small UI: start/stop, the detected device and service status, logging and autostart toggles, share and clear logs, live log (D-012).
+- A small UI: start/stop, the detected device and service status, logging and autostart toggles, share and clear logs, live log (D-013).
 
 ### Out of scope (for the MVP)
 
@@ -135,7 +135,7 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 ### D-009: Builds and releases on the build server
 
 - **Date:** 2026-11-21
-- **Status:** Accepted
+- **Status:** Superseded by D-012
 - **Context:** GitHub Actions minutes for private repos ran out; the user's repos build on Faaa97/build-server from a `build.yml`.
 - **Decision:** `build.yml` replaces `.github/workflows/release-apk.yml`: image `build-server/android:latest`, Gradle cache, CI runs `testDebugUnitTest lintDebug`, builds copy the APK to `dist/`. Tag builds sign a release APK when the `SIGNING_*` secrets exist on the build machine, and fall back to a debug-signed APK otherwise, as the old workflow did. Release notes come from git-cliff (`cliff.toml`).
 - **Alternatives considered:** keeping the GitHub Actions workflow (no minutes left).
@@ -150,16 +150,25 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Alternatives considered:** pruning files older than N days, or capping total size (rejected by the user).
 - **Consequences:** no pruning code is to be added; storage use grows while logging is on until the user clears it.
 
-### D-011: Debug-signed releases until a release keystore is on the build server
+### D-011: Debug-signed releases until a release keystore is configured
 
 - **Date:** 2026-11-21
 - **Status:** Accepted
-- **Context:** There is no release keystore yet; the user will create one and add it to the build server.
-- **Decision:** tag builds keep publishing debug-signed APKs (the fallback in `build.yml`) until the `SIGNING_*` secrets exist in the build server's `secrets/<repo>.env`. From then on they publish a signed release APK with no change to `build.yml`. How to create and add the keystore: `docs/SIGNING.md`.
+- **Context:** There is no release keystore yet; the user will create one and add it as GitHub repository secrets (originally the build server; moved by D-012).
+- **Decision:** tag builds keep publishing debug-signed APKs (the fallback in `.github/workflows/release-apk.yml`) until the `SIGNING_*` repository secrets exist on GitHub. From then on they publish a signed release APK with no change to the workflow. How to create and add the keystore: `docs/SIGNING.md`.
 - **Alternatives considered:** none.
 - **Consequences:** the first signed release has a different signature from the debug builds, so the head unit needs one uninstall and reinstall, which wipes the app's saved settings (autostart, logging toggle, saved device). The keystore and its passwords must be backed up: losing them means every later update needs that uninstall again.
 
-### D-012: Landscape dashboard UI that shows the detected device instead of a selector
+### D-012: CI and releases back on GitHub Actions
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Context:** The repo goes public (PR #1), and GitHub Actions is free for public repos, so the reason for D-009 is gone.
+- **Decision:** delete `build.yml`. `.github/workflows/ci.yml` runs `testDebugUnitTest lintDebug` on every push to `master` and every PR and keeps the reports; it builds no APK (the user wants APKs only from version tags). `.github/workflows/release-apk.yml` runs on `v*` tags: it tests, builds the APK (signed release with the `SIGNING_*` repository secrets, debug-signed otherwise), and creates the GitHub release with git-cliff notes (`cliff.toml`) and the APK attached; a tag with a suffix makes a pre-release.
+- **Alternatives considered:** keeping the build server (an extra service to keep running, and outside contributors can't see the CI logs).
+- **Consequences:** nothing to turn on in the build server. Signing secrets go in the repo's GitHub settings (`docs/SIGNING.md`).
+
+### D-013: Landscape dashboard UI that shows the detected device instead of a selector
 
 - **Date:** 2026-11-21
 - **Status:** Accepted
@@ -180,7 +189,7 @@ Not applicable: the app was built and tried in the car before it used this templ
 
 | Idea | Why it was discarded | Date |
 | ---- | -------------------- | ---- |
-| Choosing the USB device by hand in a dropdown | Replaced by probing every device with `ATZ` (D-006); unreliable names, and no one to pick it in the car. Removed from the UI in D-012 | 2026-05-30 |
+| Choosing the USB device by hand in a dropdown | Replaced by probing every device with `ATZ` (D-006); unreliable names, and no one to pick it in the car. Removed from the UI in D-013 | 2026-05-30 |
 | Mutex around service start | Replaced by the run-job check in `onStartCommand` (D-004) | 2026-09-21 |
 
 ## 6. Future work
@@ -188,7 +197,7 @@ Not applicable: the app was built and tried in the car before it used this templ
 From the README TODO list:
 
 - [ ] Configurable TCP address and port.
-- [x] Refresh the UI: the device selector is no longer useful since D-006. Done in D-012.
+- [x] Refresh the UI: the device selector is no longer useful since D-006. Done in D-013.
 - [ ] Refactor and clean up.
 - [ ] Set up donations.
 

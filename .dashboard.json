@@ -1,5 +1,0 @@
-{
-  "status": "active",
-  "next": "Try the new landscape UI (PR #2) on the head unit; add the release keystore (docs/SIGNING.md); then configurable TCP address/port",
-  "tags": ["android", "kotlin", "car", "obd2"]
-}

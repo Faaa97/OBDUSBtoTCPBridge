@@ -1,6 +1,6 @@
 # Release signing
 
-Tag builds on the build server (see `build.yml`) sign the release APK when these four secrets are in the server's `secrets/<repo>.env` on the build machine. Without them, they publish a debug-signed APK instead (D-011 in `DESIGN.md`). `build.yml` needs no change either way.
+Tag builds (`.github/workflows/release-apk.yml`) sign the release APK when these four GitHub repository secrets exist. Without them, they publish a debug-signed APK instead (D-011 in `DESIGN.md`). The workflow needs no change either way.
 
 | Secret | Value |
 | ------ | ----- |
@@ -26,20 +26,20 @@ base64 -w0 obd-bridge-release.jks > obd-bridge-release.jks.b64   # macOS: base64
 
 Never commit the keystore or the base64 file (`.gitignore` already ignores `*.jks` and `*.keystore`).
 
-## Adding it to the build server
+## Adding it to GitHub
 
-Append to `secrets/<repo>.env` on the build machine (the file and repo name the build server uses for this repo):
+In the repo on GitHub: **Settings → Secrets and variables → Actions → New repository secret**, once per secret. Or with the `gh` CLI:
 
 ```sh
-SIGNING_KEYSTORE_BASE64=<contents of obd-bridge-release.jks.b64>
-SIGNING_KEYSTORE_PASSWORD=<password>
-SIGNING_KEY_ALIAS=obd-bridge
-SIGNING_KEY_PASSWORD=<password>
+gh secret set SIGNING_KEYSTORE_BASE64 < obd-bridge-release.jks.b64
+gh secret set SIGNING_KEYSTORE_PASSWORD
+gh secret set SIGNING_KEY_ALIAS --body obd-bridge
+gh secret set SIGNING_KEY_PASSWORD
 ```
 
-The next `v*` tag build then produces `dist/OBDUSBtoTCPbridge-<tag>.apk`, signed and checked with `apksigner verify`. A build without the secrets names its file `…-debug.apk`, so the file name shows which one you got.
+The next `v*` tag build then attaches `OBDUSBtoTCPbridge-<tag>.apk` to the release, signed and checked with `apksigner verify`. A build without the secrets names its file `…-debug.apk`, so the file name shows which one you got.
 
 ## Before you rely on it
 
-- **Back up the keystore and passwords** somewhere safe besides the build machine. If they are lost, an update can't be installed over the existing app.
+- **Back up the keystore and passwords** somewhere safe (GitHub secrets can't be read back). If they are lost, an update can't be installed over the existing app.
 - **The first signed release needs one uninstall on the head unit**, because its signature differs from the debug builds. Uninstalling wipes the app's settings (autostart, logging toggle, saved device), so set them again afterwards, and re-check that the head unit still launches "Start ODBUSBToTCPBridge Service".

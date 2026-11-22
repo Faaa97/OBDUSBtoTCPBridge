@@ -2,11 +2,16 @@
 
 What each session did and left for the next. Newest entries first; keep each entry short. Nothing loads this file automatically: read it only when you need history beyond `AGENTS.md`'s **Current state**, `git log` and the PRs. Lasting facts (gotchas, commands) belong in `AGENTS.md` or a topic doc, not only here.
 
-### 2026-11-21 (UI refresh)
+### 2026-11-22 (UI refresh)
 
-- **Done:** Redesigned `MainActivity` as a landscape, always-dark dashboard for the 9" head unit (D-012): status card, big Start/Stop, switch tiles, log buttons, full-height log. Removed the device dropdown; the detected device is shown via `USBDeviceSelection.findCompatibleDevice()` (preference logic tested in `DevicePreferenceTest`). On-screen log bounded to 500 lines; receiver/observer leaks fixed. Merged `master` (template) into PR #2.
-- **Next:** Try PR #2 on the head unit and adjust sizes if needed. Optionally add `platforms;android-36.1` to build-server's Android image so CI doesn't download it every run.
-- **Notes:** Installed the Android SDK in the session; `testDebugUnitTest lintDebug` and `assembleDebug` pass. The user turned the repo on in the build server; CI was tested from PR #2 (a GitHub Actions workflow was proposed and discarded: CI stays on the build server, D-009). Pre-existing lint warning: `shareLogFiles` uses `resolveActivity` without a `<queries>` entry, which returns null on Android 11+ (fine on the Android 10 unit).
+- **Done:** Redesigned `MainActivity` as a landscape, always-dark dashboard for the 9" head unit (D-013): status card, big Start/Stop, switch tiles, log buttons, full-height log. Removed the device dropdown; the detected device is shown via `USBDeviceSelection.findCompatibleDevice()` (preference logic tested in `DevicePreferenceTest`). On-screen log bounded to 500 lines; receiver/observer leaks fixed. Merged `master` into PR #2 (template, then the go-public/GitHub Actions changes; renumbered the UI decision from D-012 to D-013 since master took D-012).
+- **Next:** Try PR #2 on the head unit and adjust sizes if needed.
+- **Notes:** Installed the Android SDK in the session; `testDebugUnitTest lintDebug` and `assembleDebug` pass. Pre-existing lint warning: `shareLogFiles` uses `resolveActivity` without a `<queries>` entry, which returns null on Android 11+ (fine on the Android 10 unit).
+
+### 2026-11-22
+
+- **Done:** With the repo going public (PR #1), moved CI and releases back to GitHub Actions (D-012): deleted `build.yml`, added `.github/workflows/ci.yml` (tests and lint on pushes to `master` and PRs; APKs are built only for `v*` tags), and reworked `release-apk.yml` to run on `v*` tags with git-cliff notes. Merged `master` into PR #1 to clear its conflicts.
+- **Next:** check that CI passes; add the signing secrets on GitHub (`docs/SIGNING.md`).
 
 ### 2026-11-21
 

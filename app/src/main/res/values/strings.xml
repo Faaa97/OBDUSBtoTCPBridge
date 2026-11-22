@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ODB USB to TCP bridge</string>
+    <string name="app_name">OBD USB to TCP bridge</string>
     <string name="button_text_start">Start Service</string>
     <string name="button_text_stop">Stop Service</string>
     <string name="logs_label">Logging</string>

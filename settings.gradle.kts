@@ -25,6 +25,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ODB USB to TCP bridge"
+rootProject.name = "OBD USB to TCP bridge"
 include(":app")
  

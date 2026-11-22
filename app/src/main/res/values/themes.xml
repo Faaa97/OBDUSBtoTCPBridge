@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. Always dark and without action bar: the app is a full-screen car dashboard. -->
-    <style name="Theme.ODBUSBToTCPBridge" parent="Theme.MaterialComponents.NoActionBar">
+    <style name="Theme.OBDUSBToTCPBridge" parent="Theme.MaterialComponents.NoActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/status_ok</item>
         <item name="colorPrimaryVariant">@color/screen_background</item>
