@@ -18,4 +18,10 @@
     <string name="service_running">Running · TCP port %1$d</string>
     <string name="service_stopped">Stopped</string>
     <string name="log_files_cleared">Log files deleted</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="update_installed_version">Installed: %1$s</string>
+    <string name="update_button">Update</string>
+    <string name="update_downloading">Downloading %1$d%%</string>
+    <string name="update_failed">Update failed: %1$s</string>
+    <string name="update_allow_installs">Allow installing apps from this source, then tap Update again</string>
 </resources>
