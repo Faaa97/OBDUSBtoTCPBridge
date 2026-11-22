@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Faint track behind the scrollbar thumb, so the bar reads as "scrollable" even before it moves. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/card_background" />
+    <corners android:radius="3dp" />
+</shape>

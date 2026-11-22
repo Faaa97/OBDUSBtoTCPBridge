@@ -14,17 +14,27 @@
     android:orientation="horizontal"
     android:padding="12dp">
 
-    <!-- ===== Controls column ===== -->
+    <!-- ===== Controls column =====
+         Scrolls on short screens: an always-visible scrollbar in its own gutter and a
+         fade at the cut-off edge hint that there is more below. -->
     <ScrollView
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="2"
+        android:fadeScrollbars="false"
+        android:fadingEdgeLength="32dp"
         android:fillViewport="true"
-        android:scrollbars="none">
+        android:requiresFadingEdge="vertical"
+        android:scrollbarSize="6dp"
+        android:scrollbarStyle="outsideOverlay"
+        android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
+        android:scrollbarTrackVertical="@drawable/scrollbar_track"
+        android:scrollbars="vertical">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
             android:orientation="vertical">
 
             <!-- Status card -->
@@ -193,11 +203,13 @@
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
-            <!-- Log file actions -->
+            <!-- Log file actions. baselineAligned="false": otherwise a label that wraps to
+                 two lines shifts its button down to line up the text baselines. -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
+                android:baselineAligned="false"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
@@ -294,7 +306,10 @@
                 android:paddingHorizontal="20dp"
                 android:paddingBottom="12dp"
                 android:clipToPadding="false"
-                android:scrollbarStyle="outsideOverlay">
+                android:scrollbarSize="6dp"
+                android:scrollbarStyle="outsideOverlay"
+                android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
+                android:scrollbarTrackVertical="@drawable/scrollbar_track">
 
                 <TextView
                     android:id="@+id/logs_text"
