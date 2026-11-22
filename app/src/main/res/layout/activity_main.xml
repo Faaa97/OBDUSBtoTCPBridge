@@ -3,6 +3,10 @@
     Landscape dashboard for car head units / 9" tablets (e.g. 1920x768).
     Left: device + service status and large touch controls.
     Right: live log filling the remaining space.
+
+    Mock data for the Android Studio layout preview uses tools: attributes only
+    (a connected, running bridge with some log lines). The build strips them, so
+    none of it ever reaches an APK.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -74,7 +78,8 @@
                             android:layout_height="16dp"
                             android:layout_marginEnd="12dp"
                             android:background="@drawable/status_dot"
-                            android:backgroundTint="@color/status_idle" />
+                            android:backgroundTint="@color/status_idle"
+                            tools:backgroundTint="@color/status_ok" />
 
                         <TextView
                             android:id="@+id/device_name"
@@ -123,7 +128,8 @@
                             android:layout_height="16dp"
                             android:layout_marginEnd="12dp"
                             android:background="@drawable/status_dot"
-                            android:backgroundTint="@color/status_idle" />
+                            android:backgroundTint="@color/status_idle"
+                            tools:backgroundTint="@color/status_ok" />
 
                         <TextView
                             android:id="@+id/service_status"
@@ -152,7 +158,8 @@
                 android:textSize="28sp"
                 android:textStyle="bold"
                 app:backgroundTint="@color/start_button_tint"
-                app:cornerRadius="16dp" />
+                app:cornerRadius="16dp"
+                tools:text="@string/button_text_stop" />
 
             <!-- Settings toggles: the whole row is the touch target -->
             <LinearLayout
@@ -199,7 +206,8 @@
                         android:switchPadding="12dp"
                         android:text="@string/logs_label"
                         android:textColor="@color/text_primary"
-                        android:textSize="20sp" />
+                        android:textSize="20sp"
+                        tools:checked="true" />
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
@@ -319,7 +327,8 @@
                     android:lineSpacingExtra="2dp"
                     android:textColor="@color/log_text"
                     android:textIsSelectable="false"
-                    android:textSize="15sp" />
+                    android:textSize="15sp"
+                    tools:text="[08:14:02.117] ----- App started -----&#10;[08:14:02.341] ----- MainActivity -----&#10;[08:14:02.512] USB device attached&#10;[08:14:02.530] Probing FT232R USB UART (VID 0403 · PID 6001)&#10;[08:14:02.604] Sending ATZ...&#10;[08:14:03.611] Response: ELM327 v1.5&#10;[08:14:03.625] ELM327 adapter verified&#10;[08:14:03.702] TCP listening on 35000&#10;[08:14:09.880] Client connected from 127.0.0.1&#10;[08:14:09.913] &gt; ATE0&#10;[08:14:09.951] &lt; OK&#10;[08:14:10.004] &gt; ATSP0&#10;[08:14:10.046] &lt; OK&#10;[08:14:10.120] &gt; 0100&#10;[08:14:11.402] &lt; SEARCHING... 41 00 BE 3E B8 11&#10;[08:14:11.530] &gt; 010C&#10;[08:14:11.598] &lt; 41 0C 0B 54&#10;[08:14:11.650] &gt; 010D&#10;[08:14:11.712] &lt; 41 0D 00&#10;[08:14:11.780] &gt; 0105&#10;[08:14:11.842] &lt; 41 05 5A&#10;[08:15:40.233] Client disconnected&#10;[08:15:40.240] TCP listening on 35000&#10;[08:16:02.871] USB device detached&#10;[08:16:02.880] USB error: device disconnected&#10;[08:16:02.884] Retrying in 2s&#10;[08:16:05.112] USB device attached&#10;[08:16:05.640] ELM327 adapter verified&#10;[08:16:05.702] TCP listening on 35000" />
             </ScrollView>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
