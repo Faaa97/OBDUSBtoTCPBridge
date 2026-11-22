@@ -2,6 +2,11 @@
 
 What each session did and left for the next. Newest entries first; keep each entry short. Nothing loads this file automatically: read it only when you need history beyond `AGENTS.md`'s **Current state**, `git log` and the PRs. Lasting facts (gotchas, commands) belong in `AGENTS.md` or a topic doc, not only here.
 
+### 2026-11-22
+
+- **Done:** With the repo going public (PR #1), moved CI and releases back to GitHub Actions (D-012): deleted `build.yml`, added `.github/workflows/ci.yml` (tests and lint on pushes to `master` and PRs; APKs are built only for `v*` tags), and reworked `release-apk.yml` to run on `v*` tags with git-cliff notes. Merged `master` into PR #1 to clear its conflicts.
+- **Next:** check that CI passes; add the signing secrets on GitHub (`docs/SIGNING.md`).
+
 ### 2026-11-21
 
 - **Done:** Adopted the project template. `CLAUDE.md` now just imports `AGENTS.md`, which keeps its requirements under **Hard requirements**. `DESIGN.md` backfilled from the code and `git log` as Accepted (D-001 to D-009). `build.yml` and `cliff.toml` for the build server replace `.github/workflows/release-apk.yml`, keeping its optional APK signing. Added `docs/PR.md`, `.dashboard.json`, and rewrote `README.md`.

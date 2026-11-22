@@ -1,5 +1,5 @@
 # git-cliff config: builds the GitHub release notes from Conventional Commits,
-# grouped by type. Used by the build server for v* tag builds (see build.yml; no CHANGELOG.md).
+# grouped by type. Used by .github/workflows/release-apk.yml for v* tag builds (no CHANGELOG.md).
 # Preview locally with: git cliff --unreleased --strip header
 
 [changelog]

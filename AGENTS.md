@@ -20,7 +20,8 @@ The app runs unattended on the Android head unit in the user's car. Every change
 | `AGENTS.md` | This file: workflow, conventions, current state. |
 | `DESIGN.md` | Source of truth for what the project is and why: vision, MVP, design decisions, discarded ideas, future work, open questions. |
 | `docs/SESSION_LOG.md` | What past sessions did. Not loaded automatically; read it only when you need that history. |
-| `build.yml` | CI, builds and releases on the user's build server: CI on every push, builds ordered from its page, and a GitHub release with git-cliff notes when a `v*` tag is pushed. |
+| `.github/workflows/ci.yml` | GitHub Actions CI: tests and lint on every push to `master` and every PR (no APK). |
+| `.github/workflows/release-apk.yml` | GitHub Actions release: builds the APK and creates the GitHub release with git-cliff notes when a `v*` tag is pushed. |
 | `cliff.toml` | How release notes group the commits. |
 | `.dashboard.json` | Status (`active`, `paused`, `done` or `idea`), next step, tags and links (`{"label", "url"}` with an `https://` url) shown on the project's card in project-dashboard. |
 
@@ -41,12 +42,10 @@ Topic docs for areas that need more than a line here. Add a row when you create 
 
 ## Builds, CI and releases
 
-They run on the user's build server ([Faaa97/build-server](https://github.com/Faaa97/build-server), `https://builds.faaa97-dashboard.duckdns.org`), not GitHub Actions (its minutes for private repos have run out), from `build.yml` at the repo root:
+They run on GitHub Actions (free now that the repo is public; D-012):
 
-- **CI:** the `ci:` steps (`./gradlew testDebugUnitTest lintDebug`) run by themselves on every push to a PR or the default branch, and show on GitHub as the `build-server/ci` commit status.
-- **Builds:** ordered from the server's page for a branch, PR or commit; they run the `steps:` and keep `dist/*` (a debug APK) for download. A PR build comments on the PR with the links.
-- **Releases:** pushing a version tag releases the project: `git tag v1.2.0 && git push origin v1.2.0`. The server runs the `steps:` with `BUILD_KIND=tag` (a signed release APK if the `SIGNING_*` secrets are set on the build machine, else a debug-signed one), then creates the GitHub release with notes from [git-cliff](https://git-cliff.org/) and the APK attached. There is no `CHANGELOG.md`. Release only when a milestone is reached, and ask the user before pushing a tag. Bump `versionName`/`versionCode` in `app/build.gradle.kts` in the same change.
-- **Turn the repo on** in the server's page once `build.yml` is on the default branch: that registers the webhook for CI and tag builds. Secrets go in the server's `secrets/<repo>.env` on the build machine (the user does that).
+- **CI:** `.github/workflows/ci.yml` runs `./gradlew testDebugUnitTest lintDebug` on every push to `master` and every PR, and keeps the reports as run artifacts. It builds no APK: APKs are built only for version tags.
+- **Releases:** pushing a version tag releases the project: `git tag v1.2.0 && git push origin v1.2.0`. `.github/workflows/release-apk.yml` tests, builds the APK (a signed release APK if the `SIGNING_*` repository secrets are set, else a debug-signed one), then creates the GitHub release with notes from [git-cliff](https://git-cliff.org/) and the APK attached. A manual run with an existing tag rebuilds and replaces the APK. There is no `CHANGELOG.md`. Release only when a milestone is reached, and ask the user before pushing a tag. Bump `versionName`/`versionCode` in `app/build.gradle.kts` in the same change.
 - **Versions** are tags like `v1.2.3`; a suffix (`v1.2.3-rc.1`) makes a pre-release. Pick the number with semver from the commits since the last tag (`fix` → patch, `feat` → minor, breaking → major); `git cliff --bumped-version` suggests it.
 - **Preview the notes** locally with `git cliff --unreleased --strip header`.
 
@@ -67,10 +66,10 @@ They run on the user's build server ([Faaa97/build-server](https://github.com/Fa
 - **Run:** `./gradlew installDebug`, then open the app, or the "Start ODBUSBToTCPBridge Service" launcher for headless auto-connect. OBD2 apps connect to `127.0.0.1:35000`.
 - **Test:** `./gradlew testDebugUnitTest`
 - **Lint:** `./gradlew lintDebug`
-- **Release build:** a tag build produces `dist/OBDUSBtoTCPbridge-<tag>.apk` (signed release, or `-debug.apk` without signing secrets).
+- **Release build:** a tag build attaches `OBDUSBtoTCPbridge-<tag>.apk` to the release (signed release, or `-debug.apk` without signing secrets).
 - **Directory layout:** all code is in `app/src/main/java/com/faaa97/obdusbtotcpbridge/`. `ObdService` owns the run loop and reconnects; `TcpUsbBridge` moves bytes between one TCP client and the `SerialLink`; `USBDeviceSelection` probes devices with `ElmVerifier`; `LaunchServiceActivity` is the headless entry point; `ObdLogBus` logs to Logcat, the UI and a daily file.
 - **Gotchas:**
-  - `app/build.gradle.kts` runs `git rev-parse` to name the APK, so Gradle fails outside a git checkout (or where git reports "dubious ownership"; `build.yml` sets `safe.directory`).
+  - `app/build.gradle.kts` runs `git rev-parse` to name the APK, so Gradle fails outside a git checkout or in a shallow clone without history (the workflows check out with `fetch-depth: 0`).
   - Blocking socket and USB reads don't respond to coroutine cancellation: close the socket/port on cancel (see `closeOnCancel` in `TcpUsbBridge`).
 
 ## Ending a session
@@ -86,6 +85,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template: `AGENTS.md`, backfilled `DESIGN.md`, and `build.yml` for the build server in place of the GitHub Actions workflow. `build.yml` hasn't run yet. Releases stay debug-signed until the user adds a release keystore to the build server (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010).
+Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`). On 2026-11-22, with the repo going public, CI and releases moved back from the build server to GitHub Actions (D-012). Releases stay debug-signed until the user adds a release keystore as repository secrets (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010).
 
-Next: the user turns the repo on in the build server, checks the first CI run (lint may flag existing code) and adds the signing secrets. Then Future work in `DESIGN.md`: configurable address/port, UI refresh.
+Next: check that CI passes on GitHub, add the signing secrets. Then Future work in `DESIGN.md`: configurable address/port, UI refresh.
