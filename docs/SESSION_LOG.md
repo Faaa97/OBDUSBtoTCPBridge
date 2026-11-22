@@ -2,6 +2,11 @@
 
 What each session did and left for the next. Newest entries first; keep each entry short. Nothing loads this file automatically: read it only when you need history beyond `AGENTS.md`'s **Current state**, `git log` and the PRs. Lasting facts (gotchas, commands) belong in `AGENTS.md` or a topic doc, not only here.
 
+### 2026-11-22 (keep-alive review)
+
+- **Done:** Reviewed how the service stays up against the FYT notes in hive-mind. Fixed (D-016): a `START_STICKY` restart now auto-connects instead of stopping on the first failed open; `LaunchServiceActivity` gets a `USB_DEVICE_ATTACHED` filter so Android relaunches the app (and grants USB permission) even after a force-stop; the UI's autostart passes auto-connect; a coroutine exception handler and crash logging. `StartPolicyTest` added; `testDebugUnitTest lintDebug testMockUnitTest` pass.
+- **Next:** On the head unit, tick "Use by default" for the adapter in the first USB dialog, then check the log after a trip: `(USB attached)`, `Service restarted by the system` or nothing tells whether FYT kills the app on sleep.
+
 ### 2026-11-22 (in-app updates)
 
 - **Done:** Released v0.2.0 (bump on `master`, tag pushed; the APK is signed). Added in-app updates (D-015): `Updates` checks GitHub's latest release, a banner above the log offers Update, which downloads the APK and opens the package installer. `UpdatesTest` covers version comparison and release parsing. `testDebugUnitTest lintDebug` and `testMockUnitTest` pass.

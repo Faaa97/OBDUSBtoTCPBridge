@@ -83,6 +83,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.2.0 (released 2026-11-22, signed APK): the MVP is in use in the car, plus the landscape dashboard (D-013) and the `mock` build for emulators (D-014, `docs/BUILDS.md`). CI and releases run on GitHub Actions (D-012). Log files are only ever deleted from the UI (D-010). The dashboard hasn't been tried on the head unit yet. In-app updates (D-015: GitHub release check, banner above the log, download and install) are in a PR and haven't been tried on a device.
+Version 0.2.0 (released 2026-11-22, signed APK): the MVP is in use in the car, plus the landscape dashboard (D-013) and the `mock` build for emulators (D-014, `docs/BUILDS.md`). CI and releases run on GitHub Actions (D-012). Log files are only ever deleted from the UI (D-010). The dashboard hasn't been tried on the head unit yet. In-app updates (D-015) are merged but untried on a device. Keep-alive fixes (D-016: sticky restarts auto-connect, a USB attach filter relaunches the app after a force-stop, crash logging) are in a PR, untried on the head unit.
 
-Next: try the dashboard on the head unit, and the update banner once a release newer than the installed one exists. Then Future work in `DESIGN.md`: configurable address/port.
+Next: on the head unit, check the log after a trip to see whether the app survives sleep (D-016 open question); try the dashboard, and the update banner once a newer release exists. Then Future work in `DESIGN.md`: configurable address/port.
