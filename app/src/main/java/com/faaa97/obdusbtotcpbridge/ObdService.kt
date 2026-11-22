@@ -10,6 +10,7 @@ import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.hoho.android.usbserial.driver.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +31,7 @@ class ObdService : Service() {
     companion object {
         const val CHANNEL_ID = "obd_channel"
         const val TCP_PORT = 35000
+        const val EXTRA_AUTO_CONNECT = "EXTRA_AUTO_CONNECT"
         private const val MIN_BACKOFF_MS = 1_000L
         private const val MAX_BACKOFF_MS = 30_000L
         private const val STABLE_SESSION_MS = 60_000L
@@ -39,7 +41,10 @@ class ObdService : Service() {
 
     private var isAutoConnectEnabled = false
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Last resort: anything that escapes a coroutine is logged instead of crashing the process.
+    private val crashGuard = CoroutineExceptionHandler { _, e -> log("Unexpected error: $e") }
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + crashGuard)
 
     private var runJob: Job? = null
 
@@ -71,22 +76,26 @@ class ObdService : Service() {
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            when (intent.action) {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    if (isAutoConnectEnabled) {
-                        log("USB device attached")
-                        wakeSignal.trySend(Unit)
-                        ensureRunning()
+            try {
+                when (intent.action) {
+                    UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                        if (isAutoConnectEnabled) {
+                            log("USB device attached")
+                            wakeSignal.trySend(Unit)
+                            ensureRunning()
+                        }
+                    }
+                    UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                        val detached = getUsbDevice(intent)
+                        val selected = adapterSource.selectedId.value
+                        if (detached == null || detached.deviceName == selected) {
+                            log("USB device detached")
+                            sessionJob?.cancel()
+                        }
                     }
                 }
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    val detached = getUsbDevice(intent)
-                    val selected = adapterSource.selectedId.value
-                    if (detached == null || detached.deviceName == selected) {
-                        log("USB device detached")
-                        sessionJob?.cancel()
-                    }
-                }
+            } catch (e: Exception) {
+                log("USB broadcast error: ${e.message}")
             }
         }
     }
@@ -100,22 +109,34 @@ class ObdService : Service() {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }
-        registerReceiver(usbReceiver, filter)
-        adapterSource.changes.addObserver(adapterChangeObserver)
+        try {
+            registerReceiver(usbReceiver, filter)
+            adapterSource.changes.addObserver(adapterChangeObserver)
+        } catch (e: Exception) {
+            log("Couldn't watch USB changes: ${e.message}")
+        }
 
         isRunning.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.getBooleanExtra("EXTRA_AUTO_CONNECT", false) == true) {
-            isAutoConnectEnabled = true
-        }
+        try {
+            val isStickyRestart = intent == null
+            if (isStickyRestart) log("Service restarted by the system")
+            isAutoConnectEnabled = StartPolicy.autoConnect(
+                alreadyEnabled = isAutoConnectEnabled,
+                requested = intent?.getBooleanExtra(EXTRA_AUTO_CONNECT, false) == true,
+                isStickyRestart = isStickyRestart
+            )
 
-        if (runJob?.isActive == true) {
-            log("Service already running, ignoring request.")
-            wakeSignal.trySend(Unit) // If it is waiting to retry, retry now
-        } else {
-            ensureRunning()
+            if (runJob?.isActive == true) {
+                log("Service already running, ignoring request.")
+                wakeSignal.trySend(Unit) // If it is waiting to retry, retry now
+            } else {
+                ensureRunning()
+            }
+        } catch (e: Exception) {
+            log("Start error: ${e.message}")
         }
 
         return START_STICKY

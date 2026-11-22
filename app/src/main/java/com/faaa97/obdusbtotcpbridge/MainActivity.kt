@@ -327,8 +327,11 @@ class MainActivity : AppCompatActivity() {
         startButton.setOnClickListener { manageService() }
     }
 
-    private fun manageService() {
-        val intent = Intent(this@MainActivity, ObdService::class.java)
+    /** [autoConnect]: keep retrying until an adapter shows up, instead of stopping on the first failure. */
+    private fun manageService(autoConnect: Boolean = false) {
+        val intent = Intent(this@MainActivity, ObdService::class.java).apply {
+            if (autoConnect) putExtra(ObdService.EXTRA_AUTO_CONNECT, true)
+        }
         try {
             if (!ObdService.isRunning.value) {
                 startService(intent)
@@ -373,7 +376,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun autoStart() {
         if (PersistedState.isAutoStartEnabled && !ObdService.isRunning.value) {
-            manageService()
+            manageService(autoConnect = true)
         }
     }
 
