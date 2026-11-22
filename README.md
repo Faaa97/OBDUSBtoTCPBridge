@@ -6,7 +6,7 @@ It's made for Android head units in cars: the bridge runs as a background servic
 
 ## Install
 
-Download the latest APK from [Releases](https://github.com/Faaa97/ODBUSBtoTCPBridge/releases) and install it on the head unit. Android 8.0 (API 26) or newer is required.
+Download the latest APK from [Releases](https://github.com/Faaa97/OBDUSBtoTCPBridge/releases) and install it on the head unit. Android 8.0 (API 26) or newer is required.
 
 1. Plug in the USB OBD2 adapter and open the app.
 2. Pick the adapter and start the service (turn on **Auto start service** to start it with the car).

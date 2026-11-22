@@ -4,7 +4,7 @@ Thanks for wanting to help!
 
 ## Reporting bugs
 
-Open an [issue](https://github.com/Faaa97/ODBUSBtoTCPBridge/issues) with:
+Open an [issue](https://github.com/Faaa97/OBDUSBtoTCPBridge/issues) with:
 
 - the head unit or phone model and Android version,
 - the USB OBD2 adapter (chip if you know it: ELM327, FTDI, CH340, CP210x, …),

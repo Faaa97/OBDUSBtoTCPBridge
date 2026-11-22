@@ -17,7 +17,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ODBUSBToTCPBridge">
+        android:theme="@style/Theme.OBDUSBToTCPBridge">
 
         <service
             android:name=".ObdService"
@@ -34,7 +34,7 @@
 
         <activity android:name=".LaunchServiceActivity"
             android:exported="true"
-            android:label="Start ODBUSBToTCPBridge Service"
+            android:label="Start OBDUSBToTCPBridge Service"
             android:theme="@style/Theme.Transparent"
             android:noHistory="true"
             android:excludeFromRecents="true"
