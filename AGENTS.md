@@ -23,7 +23,6 @@ The app runs unattended on the Android head unit in the user's car. Every change
 | `.github/workflows/ci.yml` | GitHub Actions CI: tests and lint on every push to `master` and every PR (no APK). |
 | `.github/workflows/release-apk.yml` | GitHub Actions release: builds the APK and creates the GitHub release with git-cliff notes when a `v*` tag is pushed. |
 | `cliff.toml` | How release notes group the commits. |
-| `.dashboard.json` | Status (`active`, `paused`, `done` or `idea`), next step, tags and links (`{"label", "url"}` with an `https://` url) shown on the project's card in project-dashboard. |
 
 ## Read before working on…
 
@@ -57,7 +56,6 @@ They run on GitHub Actions (free now that the repo is public; D-012):
 - **Add and run tests for new behavior** (JVM unit tests in `app/src/test`, using `FakeSerialLink` for USB). Never report work as done when tests are failing or were not run; if you couldn't run them (no Android SDK), say so.
 - **Ask before irreversible or wide-reaching changes**, such as deleting files, rewriting history, changing core dependencies or reversing a locked decision.
 - **Keep the docs current, and this file short.** Add what a future session needs here if it matters for most tasks, or to a topic doc otherwise. Move notes out when this file grows past roughly 10 KB.
-- **Keep `.dashboard.json` current** in the same change as the work that prompts it: `next` to the new next step, `status` if it changed, and an `https://` link under `links` for anything reachable from the internet.
 
 ## Project specifics
 
@@ -81,7 +79,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 3. Put gotchas a future session needs here or in the topic doc for their area.
 4. Add a short entry at the top of `docs/SESSION_LOG.md`: date, what was done, and the next steps.
 5. **Replace** the **Current state** section below (don't append to it): a few lines on where things stand and what's next.
-6. Update `next` (and `status` if it changed) in `.dashboard.json`.
 
 ## Current state
 
