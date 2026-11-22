@@ -177,6 +177,15 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Alternatives considered:** keeping the dropdown (no one to pick a device in the car, and the service probes all devices anyway); following the system day/night theme (head units often don't switch, and a light screen glares at night).
 - **Consequences:** sized for ~480dp of usable height (1920x768 at 240dpi). The on-screen log is bounded, unlike the log files (D-010). Not yet checked on the head unit.
 
+### D-014: A `mock` build type with a simulated adapter, kept out of CI and releases
+
+- **Date:** 2026-11-22
+- **Status:** Accepted
+- **Context:** Trying UI or reconnect changes needed the head unit and the car's USB adapter. An emulator has no USB serial device, so the real app only ever shows "No compatible device" there.
+- **Decision:** a third build type, `mock` (`initWith(debug)`, application id suffix `.mock`, label "OBD bridge (mock)"). Its code lives only in `app/src/mock/`: a manifest overlay swaps the Application for `MockApp`, which sets `Adapters.source` to a simulated ELM327 (`MockAdapterSource`, `MockElm327`), starts a `DemoClient` that polls the bridge over TCP like an OBD2 app, and takes adb broadcasts to unplug/plug the adapter and turn the demo client off. The main code reaches the adapter through a small `AdapterSource` interface (`UsbAdapterSource` wraps the existing `USBDeviceSelection`), so the service, TCP bridge and UI run unchanged in the mock build. Tests for the simulator are in `app/src/testMock` (`testMockUnitTest`). No workflow builds, tests or lints the mock build. How to use it: `docs/BUILDS.md`.
+- **Alternatives considered:** product flavors (`real`/`mock`) would rename every task (`testRealDebugUnitTest`…) and need workflow changes; a demo switch inside the debug build would put mock code in the APK we test and ship from; layout-preview data only (`tools:` attributes, kept as well) doesn't run on a device.
+- **Consequences:** Debug and release APKs contain no mock classes (checked in their dex files). `App` is `open` so `MockApp` can extend it. Adapters that send no USB broadcast notify through `AdapterSource.changes`; for USB it never fires, the system broadcasts still drive the service and the UI.
+
 ## 4. Prototype review
 
 Not applicable: the app was built and tried in the car before it used this template.

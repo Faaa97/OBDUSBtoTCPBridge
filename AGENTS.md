@@ -32,6 +32,7 @@ Topic docs for areas that need more than a line here. Add a row when you create 
 | ---- | ---- |
 | Opening a PR, commit message format | `docs/PR.md` |
 | Release signing, keystore, `SIGNING_*` secrets | `docs/SIGNING.md` |
+| Build types, the `mock` build, testing on an emulator | `docs/BUILDS.md` |
 
 ## Starting a session
 
@@ -61,11 +62,11 @@ They run on GitHub Actions (free now that the repo is public; D-012):
 
 - **Tech stack:** Kotlin, Android Views, coroutines, [usb-serial-for-android](https://github.com/mik3y/usb-serial-for-android). AGP 9, JDK 21 toolchain, `minSdk 26`, `targetSdk 36`. Versions in `gradle/libs.versions.toml`.
 - **Setup:** Android Studio, or the Android SDK with `ANDROID_HOME` set.
-- **Run:** `./gradlew installDebug`, then open the app, or the "Start ODBUSBToTCPBridge Service" launcher for headless auto-connect. OBD2 apps connect to `127.0.0.1:35000`.
+- **Run:** `./gradlew installDebug`, then open the app, or the "Start ODBUSBToTCPBridge Service" launcher for headless auto-connect. OBD2 apps connect to `127.0.0.1:35000`. Without a head unit, `./gradlew installMock` runs the app on an emulator with a simulated adapter (`docs/BUILDS.md`).
 - **Test:** `./gradlew testDebugUnitTest`
 - **Lint:** `./gradlew lintDebug`
 - **Release build:** a tag build attaches `OBDUSBtoTCPbridge-<tag>.apk` to the release (signed release, or `-debug.apk` without signing secrets).
-- **Directory layout:** all code is in `app/src/main/java/com/faaa97/obdusbtotcpbridge/`. `ObdService` owns the run loop and reconnects; `TcpUsbBridge` moves bytes between one TCP client and the `SerialLink`; `USBDeviceSelection` probes devices with `ElmVerifier`; `LaunchServiceActivity` is the headless entry point; `ObdLogBus` logs to Logcat, the UI and a daily file.
+- **Directory layout:** all code is in `app/src/main/java/com/faaa97/obdusbtotcpbridge/`, except the mock build's in `app/src/mock/` (tests in `app/src/testMock/`, run with `testMockUnitTest`, not in CI). The service and UI get the adapter through `Adapters.source` (`AdapterSource`). `ObdService` owns the run loop and reconnects; `TcpUsbBridge` moves bytes between one TCP client and the `SerialLink`; `USBDeviceSelection` probes devices with `ElmVerifier`; `LaunchServiceActivity` is the headless entry point; `ObdLogBus` logs to Logcat, the UI and a daily file.
 - **Gotchas:**
   - `app/build.gradle.kts` runs `git rev-parse` to name the APK, so Gradle fails outside a git checkout or in a shallow clone without history (the workflows check out with `fetch-depth: 0`).
   - Blocking socket and USB reads don't respond to coroutine cancellation: close the socket/port on cancel (see `closeOnCancel` in `TcpUsbBridge`).
@@ -82,6 +83,6 @@ Before stopping, leave the repo so the next session can pick up without extra co
 
 ## Current state
 
-Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`). On 2026-11-22, with the repo going public, CI and releases moved back from the build server to GitHub Actions (D-012). Releases stay debug-signed until the user adds a release keystore as repository secrets (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010). The UI refresh (D-013: landscape dashboard, detected device shown instead of a dropdown) is in PR #2 and hasn't been tried on the head unit yet.
+Version 0.1.0: the MVP works and is in use in the car (see `DESIGN.md`). On 2026-11-21 the repo adopted the project template (`AGENTS.md`, backfilled `DESIGN.md`). On 2026-11-22, with the repo going public, CI and releases moved back from the build server to GitHub Actions (D-012). Releases stay debug-signed until the user adds a release keystore as repository secrets (D-011, `docs/SIGNING.md`). Log files are only ever deleted from the UI (D-010). The UI refresh (D-013: landscape dashboard, detected device shown instead of a dropdown) is in PR #2 and hasn't been tried on the head unit yet. PR #2 also adds the `mock` build type (D-014, `docs/BUILDS.md`): a simulated ELM327 and demo client for trying the app on an emulator, kept out of CI and releases.
 
 Next: the user tries PR #2 on the head unit, check that CI passes on GitHub, add the signing secrets. Then Future work in `DESIGN.md`: configurable address/port.

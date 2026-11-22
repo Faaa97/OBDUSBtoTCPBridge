@@ -46,8 +46,28 @@ class ObdService : Service() {
     private val wakeSignal = Channel<Unit>(Channel.CONFLATED)
 
     @Volatile private var sessionJob: Job? = null
-    @Volatile private var usbPort: UsbSerialPort? = null
+    @Volatile private var adapter: OpenAdapter? = null
     @Volatile private var bridge: TcpUsbBridge? = null
+
+    private val adapterSource: AdapterSource get() = Adapters.source
+
+    // Attach/detach of an adapter that sends no USB broadcast (the mock build's simulated one).
+    // Same reaction as the USB broadcasts below.
+    private val adapterChangeObserver: (Int) -> Unit = {
+        try {
+            val open = adapter
+            if (open != null && adapterSource.findAdapter()?.id != open.id) {
+                log("Adapter detached")
+                sessionJob?.cancel()
+            } else if (open == null && isAutoConnectEnabled && adapterSource.findAdapter() != null) {
+                log("Adapter attached")
+                wakeSignal.trySend(Unit)
+                ensureRunning()
+            }
+        } catch (e: Exception) {
+            log("Adapter change error: ${e.message}")
+        }
+    }
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -61,7 +81,7 @@ class ObdService : Service() {
                 }
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
                     val detached = getUsbDevice(intent)
-                    val selected = USBDeviceSelection.selectedDeviceOption.value
+                    val selected = adapterSource.selectedId.value
                     if (detached == null || detached.deviceName == selected) {
                         log("USB device detached")
                         sessionJob?.cancel()
@@ -81,6 +101,7 @@ class ObdService : Service() {
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
         }
         registerReceiver(usbReceiver, filter)
+        adapterSource.changes.addObserver(adapterChangeObserver)
 
         isRunning.value = true
     }
@@ -103,6 +124,7 @@ class ObdService : Service() {
     override fun onDestroy() {
         isRunning.value = false
         try { unregisterReceiver(usbReceiver) } catch (e: Exception) {}
+        adapterSource.changes.removeObserver(adapterChangeObserver)
         serviceScope.cancel()
         runJob = null
         closeAll()
@@ -131,8 +153,8 @@ class ObdService : Service() {
         val backoff = Backoff(MIN_BACKOFF_MS, MAX_BACKOFF_MS)
 
         while (currentCoroutineContext().isActive) {
-            val port = try {
-                USBDeviceSelection.openAndVerifyDevice()
+            val opened = try {
+                adapterSource.openAndVerify()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -140,20 +162,20 @@ class ObdService : Service() {
                 null
             }
 
-            if (port == null) {
+            if (opened == null) {
                 if (!isAutoConnectEnabled) {
                     log("Can't continue, stopping")
                     stopSelf()
                     return
                 }
             } else {
-                usbPort = port
+                adapter = opened
                 val startedAt = SystemClock.elapsedRealtime()
                 try {
-                    runSession(port)
+                    runSession(opened)
                 } finally {
-                    closeQuietly(port)
-                    usbPort = null
+                    closeQuietly(opened)
+                    adapter = null
                 }
                 if (SystemClock.elapsedRealtime() - startedAt > STABLE_SESSION_MS) {
                     backoff.reset()
@@ -166,10 +188,10 @@ class ObdService : Service() {
         }
     }
 
-    private suspend fun runSession(port: UsbSerialPort) = coroutineScope {
+    private suspend fun runSession(opened: OpenAdapter) = coroutineScope {
         val job = launch {
             try {
-                serve(port)
+                serve(opened)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -186,7 +208,7 @@ class ObdService : Service() {
 
     // ---------------- TCP ----------------
 
-    private suspend fun serve(port: UsbSerialPort) {
+    private suspend fun serve(opened: OpenAdapter) {
         val server = ServerSocket()
         try {
             server.reuseAddress = true
@@ -196,7 +218,7 @@ class ObdService : Service() {
             throw e
         }
 
-        val newBridge = TcpUsbBridge(port.asSerialLink(), server, ::log)
+        val newBridge = TcpUsbBridge(opened.link, server, ::log)
         bridge = newBridge
         log("TCP listening on $TCP_PORT")
         try {
@@ -211,9 +233,9 @@ class ObdService : Service() {
 
     private fun closeAll() {
         bridge?.close()
-        closeQuietly(usbPort)
+        closeQuietly(adapter)
         bridge = null
-        usbPort = null
+        adapter = null
     }
 
     private fun closeQuietly(closeable: Closeable?) {

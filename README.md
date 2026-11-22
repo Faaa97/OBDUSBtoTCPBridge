@@ -20,8 +20,12 @@ Download the latest APK from [Releases](https://github.com/Faaa97/OBDUSBtoTCPBri
 
 ```sh
 ./gradlew assembleDebug        # APK in app/build/outputs/apk/debug/
+./gradlew assembleRelease      # release APK (unsigned when built locally)
+./gradlew assembleMock         # debug build with a simulated adapter, for emulators
 ./gradlew testDebugUnitTest    # unit tests
 ```
+
+No head unit or adapter at hand? The **mock** build replaces USB with a simulated ELM327 and a demo client, so you can try the whole app on an Android emulator. See [`docs/BUILDS.md`](docs/BUILDS.md).
 
 GitHub Actions runs the tests and lint on every push and pull request. Pushing a `v*` tag builds the APK and attaches it to a new GitHub release.
 
@@ -36,6 +40,7 @@ Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBU
 ## Docs
 
 - [`DESIGN.md`](DESIGN.md): design decisions, future work and open questions.
+- [`docs/BUILDS.md`](docs/BUILDS.md): debug, release and mock builds, and trying the app on an emulator.
 - [`AGENTS.md`](AGENTS.md): how to work on the repo (for AI agents and humans).
 
 ## License

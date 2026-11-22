@@ -38,6 +38,9 @@ class MainActivity : AppCompatActivity() {
     // Observables may notify from any thread; always hop to the UI thread.
     private val serviceObserver: (Boolean) -> Unit = { runOnUiThread { refreshUi() } }
     private val deviceObserver: (String?) -> Unit = { runOnUiThread { refreshUi() } }
+    private val adapterChangeObserver: (Int) -> Unit = { runOnUiThread { refreshUi() } }
+
+    private val adapterSource: AdapterSource get() = Adapters.source
 
     private val delayedRefresh = Runnable { refreshUi() }
 
@@ -61,7 +64,8 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.registerReceiver(this, usbReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         ObdService.isRunning.addObserver(serviceObserver)
-        USBDeviceSelection.selectedDeviceOption.addObserver(deviceObserver)
+        adapterSource.selectedId.addObserver(deviceObserver)
+        adapterSource.changes.addObserver(adapterChangeObserver)
 
         refreshUi()
         autoStart()
@@ -75,7 +79,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         ObdLogBus.log("----- (MainActivity) -----")
         ObdService.isRunning.removeObserver(serviceObserver)
-        USBDeviceSelection.selectedDeviceOption.removeObserver(deviceObserver)
+        adapterSource.selectedId.removeObserver(deviceObserver)
+        adapterSource.changes.removeObserver(adapterChangeObserver)
         logScroll.removeCallbacks(delayedRefresh)
         try { unregisterReceiver(usbReceiver) } catch (e: Exception) {}
         super.onDestroy()
@@ -158,7 +163,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateDeviceStatus() {
-        val device = USBDeviceSelection.findCompatibleDevice()
+        val device = adapterSource.findAdapter()
         deviceFound = device != null
 
         if (device == null) {
@@ -169,12 +174,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         deviceName.text = device.label
-        val d = device.device
-        deviceInfo.text = String.format(
-            java.util.Locale.US, "VID %04X · PID %04X · %s", d.vendorId, d.productId, d.deviceName
-        )
+        deviceInfo.text = device.details
         val inUse = ObdService.isRunning.value &&
-                USBDeviceSelection.selectedDeviceOption.value == device.id
+                adapterSource.selectedId.value == device.id
         setDotColor(deviceDot, if (inUse) R.color.status_ok else R.color.status_warn)
     }
 
