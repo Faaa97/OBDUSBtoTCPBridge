@@ -23,7 +23,7 @@ Download the latest APK from [Releases](https://github.com/Faaa97/OBDUSBtoTCPBri
 ./gradlew testDebugUnitTest    # unit tests
 ```
 
-GitHub Actions runs the tests, lint and a debug build on every push and pull request. Pushing a `v*` tag builds the APK and attaches it to a new GitHub release.
+GitHub Actions runs the tests and lint on every push and pull request. Pushing a `v*` tag builds the APK and attaches it to a new GitHub release.
 
 ## Support the project
 

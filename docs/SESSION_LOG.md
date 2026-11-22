@@ -4,7 +4,7 @@ What each session did and left for the next. Newest entries first; keep each ent
 
 ### 2026-11-22
 
-- **Done:** With the repo going public (PR #1), moved CI and releases back to GitHub Actions (D-012): deleted `build.yml`, added `.github/workflows/ci.yml` (tests, lint, debug build on pushes to `master` and PRs), and reworked `release-apk.yml` to run on `v*` tags with git-cliff notes. Merged `master` into PR #1 to clear its conflicts.
+- **Done:** With the repo going public (PR #1), moved CI and releases back to GitHub Actions (D-012): deleted `build.yml`, added `.github/workflows/ci.yml` (tests and lint on pushes to `master` and PRs; APKs are built only for `v*` tags), and reworked `release-apk.yml` to run on `v*` tags with git-cliff notes. Merged `master` into PR #1 to clear its conflicts.
 - **Next:** check that CI passes; add the signing secrets on GitHub (`docs/SIGNING.md`).
 
 ### 2026-11-21

@@ -164,7 +164,7 @@ Locked-in decisions. Add new entries at the bottom and never silently rewrite ol
 - **Date:** 2026-11-22
 - **Status:** Accepted
 - **Context:** The repo goes public (PR #1), and GitHub Actions is free for public repos, so the reason for D-009 is gone.
-- **Decision:** delete `build.yml`. `.github/workflows/ci.yml` runs `testDebugUnitTest lintDebug assembleDebug` on every push to `master` and every PR, and uploads the reports and the debug APK as run artifacts. `.github/workflows/release-apk.yml` runs on `v*` tags: it tests, builds the APK (signed release with the `SIGNING_*` repository secrets, debug-signed otherwise), and creates the GitHub release with git-cliff notes (`cliff.toml`) and the APK attached; a tag with a suffix makes a pre-release.
+- **Decision:** delete `build.yml`. `.github/workflows/ci.yml` runs `testDebugUnitTest lintDebug` on every push to `master` and every PR and keeps the reports; it builds no APK (the user wants APKs only from version tags). `.github/workflows/release-apk.yml` runs on `v*` tags: it tests, builds the APK (signed release with the `SIGNING_*` repository secrets, debug-signed otherwise), and creates the GitHub release with git-cliff notes (`cliff.toml`) and the APK attached; a tag with a suffix makes a pre-release.
 - **Alternatives considered:** keeping the build server (an extra service to keep running, and outside contributors can't see the CI logs).
 - **Consequences:** nothing to turn on in the build server. Signing secrets go in the repo's GitHub settings (`docs/SIGNING.md`).
 

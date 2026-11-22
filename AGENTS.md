@@ -20,7 +20,7 @@ The app runs unattended on the Android head unit in the user's car. Every change
 | `AGENTS.md` | This file: workflow, conventions, current state. |
 | `DESIGN.md` | Source of truth for what the project is and why: vision, MVP, design decisions, discarded ideas, future work, open questions. |
 | `docs/SESSION_LOG.md` | What past sessions did. Not loaded automatically; read it only when you need that history. |
-| `.github/workflows/ci.yml` | GitHub Actions CI: tests, lint and a debug build on every push to `master` and every PR. |
+| `.github/workflows/ci.yml` | GitHub Actions CI: tests and lint on every push to `master` and every PR (no APK). |
 | `.github/workflows/release-apk.yml` | GitHub Actions release: builds the APK and creates the GitHub release with git-cliff notes when a `v*` tag is pushed. |
 | `cliff.toml` | How release notes group the commits. |
 | `.dashboard.json` | Status (`active`, `paused`, `done` or `idea`), next step, tags and links (`{"label", "url"}` with an `https://` url) shown on the project's card in project-dashboard. |
@@ -44,7 +44,7 @@ Topic docs for areas that need more than a line here. Add a row when you create 
 
 They run on GitHub Actions (free now that the repo is public; D-012):
 
-- **CI:** `.github/workflows/ci.yml` runs `./gradlew testDebugUnitTest lintDebug assembleDebug` on every push to `master` and every PR. The test/lint reports and the debug APK are kept as run artifacts.
+- **CI:** `.github/workflows/ci.yml` runs `./gradlew testDebugUnitTest lintDebug` on every push to `master` and every PR, and keeps the reports as run artifacts. It builds no APK: APKs are built only for version tags.
 - **Releases:** pushing a version tag releases the project: `git tag v1.2.0 && git push origin v1.2.0`. `.github/workflows/release-apk.yml` tests, builds the APK (a signed release APK if the `SIGNING_*` repository secrets are set, else a debug-signed one), then creates the GitHub release with notes from [git-cliff](https://git-cliff.org/) and the APK attached. A manual run with an existing tag rebuilds and replaces the APK. There is no `CHANGELOG.md`. Release only when a milestone is reached, and ask the user before pushing a tag. Bump `versionName`/`versionCode` in `app/build.gradle.kts` in the same change.
 - **Versions** are tags like `v1.2.3`; a suffix (`v1.2.3-rc.1`) makes a pre-release. Pick the number with semver from the commits since the last tag (`fix` → patch, `feat` → minor, breaking → major); `git cliff --bumped-version` suggests it.
 - **Preview the notes** locally with `git cliff --unreleased --strip header`.

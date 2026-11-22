@@ -1,8 +1,7 @@
 name: CI
 
-# Runs unit tests, lint and a debug build on every push to master and on
-# every pull request. Releases are built by release-apk.yml when a v* tag
-# is pushed.
+# Runs unit tests and lint on every push to master and on every pull request.
+# No APK is built here: only release-apk.yml builds one, when a v* tag is pushed.
 
 on:
   push:
@@ -37,10 +36,10 @@ jobs:
         with:
           cache-provider: basic
 
-      - name: Unit tests, lint and debug build
+      - name: Unit tests and lint
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
+          ./gradlew --no-daemon testDebugUnitTest lintDebug
 
       - name: Upload test and lint reports
         if: always()
@@ -51,10 +50,3 @@ jobs:
             app/build/reports/
             app/build/test-results/
           if-no-files-found: ignore
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v7
-        with:
-          name: debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
